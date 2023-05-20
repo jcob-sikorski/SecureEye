@@ -1,10 +1,18 @@
-from flask import Flask, request, abort
+from flask import Flask, request
 from dotenv import load_dotenv
 import os, json, requests
+
+
+def configure():
+    load_dotenv()
+
+
+configure()
 
 app = Flask(__name__)
 
 
+# TODO resolve 'The callback URL or verify token couldn't be validated. Please verify the provided information or try again later.
 def callSendAPI(sender_psid, response):
     # TODO add access token to .env
     PAGE_ACCESS_TOKEN = os.getenv('PAGE_ACCESS_TOKEN')
@@ -26,6 +34,7 @@ def callSendAPI(sender_psid, response):
     r = requests.post(url, json=payload, headers=headers)
     print(r.text)
 
+
 def handleMessage(sender_psid, received_message):
     # TODO send image instead of text
     if 'text' in received_message:
@@ -44,11 +53,7 @@ def handleMessage(sender_psid, received_message):
 
 @app.route('/')
 def home():
-    return 'Flask heroku app.'
-
-
-def configure():
-    load_dotenv()
+    return 'Flask heroku app is running!'
 
 
 # TODO do we actually upload this to heroku?
@@ -57,8 +62,6 @@ VERIFY_TOKEN = os.getenv('VERIFY_TOKEN') # Replace this with your verify token
 
 @app.route('/webhook', methods=['GET', 'POST'])
 def index():
-    global VERIFY_TOKEN
-
     if request.method == 'GET':
 
         if 'hub.mode' in request.args:
@@ -113,8 +116,6 @@ def index():
                 return 'ERROR', 403
             
 
-
-
         data = request.data
         body = json.loads(data.decode('utf-8'))
 
@@ -135,6 +136,6 @@ def index():
         else:
             return 'ERROR', 404
 
+
 if __name__ == '__main__':
-    configure()
     app.run()
