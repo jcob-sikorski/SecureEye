@@ -12,9 +12,7 @@ configure()
 app = Flask(__name__)
 
 
-# TODO resolve 'The callback URL or verify token couldn't be validated. Please verify the provided information or try again later.
 def callSendAPI(sender_psid, response):
-    # TODO add access token to .env
     PAGE_ACCESS_TOKEN = os.getenv('PAGE_ACCESS_TOKEN')
 
     payload = {
@@ -36,10 +34,17 @@ def callSendAPI(sender_psid, response):
 
 
 def handleMessage(sender_psid, received_message):
-    # TODO send image instead of text
     if 'text' in received_message:
+        image_url = "https://www.usaoncanvas.com/images/low_res_image.jpg"
+
         response = {
-            'text': f"You sent the message: {received_message['text']}"
+            'attachment': {
+                'type': 'image',
+                'payload': {
+                    'url': image_url,
+                    'is_reusable': True
+                }
+            }
         }
 
         callSendAPI(sender_psid, response)
