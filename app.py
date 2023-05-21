@@ -1,18 +1,39 @@
 from flask import Flask, request
 from dotenv import load_dotenv
 import os, json, requests
+import boto3
+from werkzeug.utils import secure_filename
 
+# TODO add new route for /upload to aws s3 bucket
+# camera sends image to /upload which sends image to s3 bucket
+# and flask app sends image url to facebook messenger
 
-def configure():
+def configure_secrets():
     load_dotenv()
 
 
-configure()
+configure_secrets()
 
 app = Flask(__name__)
 
+S3_ACCESS_KEY = os.getenv('S3_ACCESS_KEY')
+S3_SECRET_ACCESS_KEY = os.getenv('S3_SECRET_ACCESS_KEY')
 
-def callSendAPI(sender_psid, response):
+
+boto3.setup_default_session(aws_access_key_id='S3_ACCESS_KEY',
+                            aws_secret_access_key='S3_SECRET_ACCESS_KEY',
+                            region_name='eu-west-1')
+
+
+s3 = boto3.client('s3')
+
+
+@app.route('/')
+def home():
+    return "Say 'Hi!' to SecureEye!"
+
+
+def sendResponseToMessenger(sender_psid, response):
     PAGE_ACCESS_TOKEN = os.getenv('PAGE_ACCESS_TOKEN')
 
     payload = {
@@ -33,7 +54,7 @@ def callSendAPI(sender_psid, response):
     print(r.text)
 
 
-def handleMessage(sender_psid, received_message):
+def handleMessageFromUser(sender_psid, received_message):
     if 'text' in received_message:
         image_url = "https://www.usaoncanvas.com/images/low_res_image.jpg"
 
@@ -47,18 +68,29 @@ def handleMessage(sender_psid, received_message):
             }
         }
 
-        callSendAPI(sender_psid, response)
+        sendResponseToMessenger(sender_psid, response)
     else:
         response = {
             'text': f"This app only accepts text messages."
         }
 
-        callSendAPI(sender_psid, response)
+        sendResponseToMessenger(sender_psid, response)
 
+# TODO make it secure so only camera can upload to s3 bucket
+# e.g. add a secret key to the request
+@app.route('/upload', methods=['POST'])
+def uploadImageToS3():
+    if 'file' not in request.files:
+        return 'No file part', 400
 
-@app.route('/')
-def home():
-    return 'Flask heroku app is running!'
+    file = request.files['file']
+    if file.filename == '':
+        return 'No selected file', 400
+
+    if file:
+        filename = secure_filename(file.filename)
+        s3.upload_fileobj(file, 'images-for-messenger', filename)
+        return 'File uploaded successfully', 200
 
 
 # TODO do we actually upload this to heroku?
@@ -66,7 +98,7 @@ VERIFY_TOKEN = os.getenv('VERIFY_TOKEN') # Replace this with your verify token
 
 
 @app.route('/webhook', methods=['GET', 'POST'])
-def index():
+def webhook():
     if request.method == 'GET':
 
         if 'hub.mode' in request.args:
@@ -135,7 +167,7 @@ def index():
                 print(f'Sender PSID: {sender_psid}')
 
                 if 'message' in webhook_event:
-                    handleMessage(sender_psid, webhook_event['message'])
+                    handleMessageFromUser(sender_psid, webhook_event['message'])
 
                 return 'EVENT_RECEIVED', 200
         else:
