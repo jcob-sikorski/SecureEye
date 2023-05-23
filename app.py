@@ -52,12 +52,6 @@ UPLOAD_SECRET_KEY = os.getenv('UPLOAD_SECRET_KEY')
 
 @app.route('/upload', methods=['POST'])
 def uploadImageToS3():
-    # Check if the secret key is correct
-    provided_secret_key = request.headers.get('UPLOAD-SECRET-KEY')
-
-    if provided_secret_key != UPLOAD_SECRET_KEY:
-        return 'Invalid secret key', 403
-    
     if 'file' not in request.files:
         return 'No file part', 400
 
