@@ -4,8 +4,6 @@ import os, json, requests
 import boto3
 from werkzeug.utils import secure_filename
 
-# TODO establish connection with messenger by webhook but retrieve messages when someone sends image to /upload and then send them to messenger user specified by pasted URL
-
 def configure_secrets():
     load_dotenv()
 
@@ -71,13 +69,11 @@ def uploadImageToS3():
         filename = secure_filename(file.filename)
         s3.upload_fileobj(file, 'images-for-messenger', filename)
 
-        # Create a presigned URL for the uploaded file
-        image_url = s3.generate_presigned_url('get_object',
-                                                  Params={'Bucket': 'images-for-messenger',
-                                                          'Key': filename},
-                                                  ExpiresIn=3600)
-
-        # Send the presigned URL to the image on S3 bucket to Facebook Messenger User
+        # Create a URL for the uploaded file
+        image_url = f"https://images-for-messenger.s3.eu-west-1.amazonaws.com/{filename}"
+        print(image_url)
+        
+        # Send the URL to the image on S3 bucket to Facebook Messenger User
         response = {
             'attachment': {
                 'type': 'image',
