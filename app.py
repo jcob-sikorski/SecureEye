@@ -70,7 +70,7 @@ def uploadImageToS3():
 
         # Define S3 resource instead of client to use the upload_file method
         s3 = boto3.resource('s3')
-        s3.Bucket('images-for-messenger').put_object(Key=filename, Body=file, ACL='public-read')
+        s3.Bucket('images-for-messenger').put_object(Key=filename, Body=file)
 
         # Create a URL for the uploaded file
         image_url = f"https://images-for-messenger.s3.eu-west-1.amazonaws.com/{filename}"
