@@ -60,7 +60,8 @@ class CameraImage(db.Model):
 
 inspector = inspect(db.engine)
 if 'user_psid' not in inspector.get_table_names():
-    db.create_all()
+    with app.app_context():
+        db.create_all()
 
 
 # Define a route for the home page
