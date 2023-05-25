@@ -7,8 +7,8 @@ from PIL import Image
 import io
 from flask_sqlalchemy import SQLAlchemy
 
-
-# curl -X POST -F "file=@/Users/jakubsiekiera/Downloads/25percent4x4.png" https://secure-eye.herokuapp.com/upload
+# curl -X POST --data-binary "@/Users/jakubsiekiera/Downloads/25percent4x4.png" https://secureeye.herokuapp.com/upload
+# curl -X POST -F "file=@/Users/jakubsiekiera/Downloads/25percent4x4.png" https://secureeye.herokuapp.com/upload
 
 # Load environment variables from a .env file
 def configure_secrets():
@@ -29,13 +29,11 @@ boto3.setup_default_session(aws_access_key_id=S3_ACCESS_KEY,
                             region_name='eu-west-1')
 s3 = boto3.client('s3')
 
-# Load database details from environment variables
-db_name = os.getenv('DB_NAME')
-db_user = os.getenv('DB_USER')
-db_psswd = os.getenv('DB_PSSWD')
+# Configure SQLAlchemy to use PostgreSQL
+db_url = os.getenv('DATABASE_URL')  # use DATABASE_URL instead of separate user, password, host, etc.
 
 # Configure SQLAlchemy to use PostgreSQL
-app.config['SQLALCHEMY_DATABASE_URI'] = f'postgresql://{db_user}:{db_psswd}@localhost/{db_name}'
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 db = SQLAlchemy(app)
 
 
@@ -90,7 +88,7 @@ def sendResponseToMessenger(sender_psid, response):
 @app.route('/upload', methods=['POST'])
 def uploadImageToS3():
     # TODO send the curl request with the camera id included with image data
-    
+
     # Retrieve and process image data from the request
     image_raw_bytes = request.get_data() 
 
