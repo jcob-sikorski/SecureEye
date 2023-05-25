@@ -57,6 +57,11 @@ class CameraImage(db.Model):
     ImageUrl = db.Column(db.String(255), nullable=False)
 
 
+# Create the tables
+with app.app_context():
+    db.create_all()
+
+
 # Define a route for the home page
 @app.route('/')
 def home():
