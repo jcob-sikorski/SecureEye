@@ -44,18 +44,11 @@ db = SQLAlchemy(app)
 class UserPSID(db.Model):
     __tablename__ = 'user_psid'
     UserId = db.Column(db.Integer, primary_key=True)
-    PSID = db.Column(db.Integer, unique=True)
 
 class UserCamera(db.Model):
     __tablename__ = 'user_camera'
     CameraId = db.Column(db.Integer, primary_key=True)
-    UserId = db.Column(db.Integer, db.ForeignKey('user_psid.UserId'))  # corrected here
-
-class CameraImage(db.Model):
-    __tablename__ = 'camera_image'
-    ID = db.Column(db.Integer, primary_key=True)
-    CameraId = db.Column(db.Integer, db.ForeignKey('user_camera.CameraId'))  # corrected here
-    ImageUrl = db.Column(db.String(255), nullable=False)
+    UserId = db.Column(db.Integer, db.ForeignKey('user_psid.UserId'))  # Foreign Key reference to the UserPSID table
 
 
 with app.app_context():
@@ -133,9 +126,6 @@ def uploadImageToS3():
 
     # Store image URL in the database
     camera_id = 123  # replace with actual CameraId
-    camera_image = CameraImage(CameraId=camera_id, ImageUrl=image_url)
-    db.session.add(camera_image)
-    db.session.commit()
 
     # Find the user associated with this CameraId
     user_camera = UserCamera.query.filter_by(CameraId=camera_id).first()
@@ -156,16 +146,16 @@ def handleMessage(sender_psid, received_message):
 
     # Process the received message and send a response
     if 'text' in received_message:
-        # Assuming the text message contains the CameraId
-        camera_id = int(received_message['text'])
-        
         # Check if the user already exists
         user = UserPSID.query.filter_by(PSID=sender_psid).first()
         if not user:
             # Create a new user if it does not exist
-            user = UserPSID(UserId=sender_psid, PSID=sender_psid)
+            user = UserPSID(UserId=sender_psid)
             db.session.add(user)
             db.session.commit()
+
+        # Assuming the text message contains the CameraId
+        camera_id = int(received_message['text'])
         
         # Assign the cameraID to the user
         user_camera = UserCamera(CameraId=camera_id, UserId=sender_psid)
