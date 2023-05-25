@@ -6,6 +6,7 @@ import boto3
 from PIL import Image
 import io
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import inspect
 
 # curl -X POST --data-binary "@/Users/jakubsiekiera/Downloads/25percent4x4.png" https://secureeye.herokuapp.com/upload
 # curl -X POST -F "file=@/Users/jakubsiekiera/Downloads/25percent4x4.png" https://secureeye.herokuapp.com/upload
@@ -57,8 +58,8 @@ class CameraImage(db.Model):
     ImageUrl = db.Column(db.String(255), nullable=False)
 
 
-# Create the tables
-with app.app_context():
+inspector = inspect(db.engine)
+if 'user_psid' not in inspector.get_table_names():
     db.create_all()
 
 
