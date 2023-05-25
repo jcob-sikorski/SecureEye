@@ -58,9 +58,9 @@ class CameraImage(db.Model):
     ImageUrl = db.Column(db.String(255), nullable=False)
 
 
-inspector = inspect(db.engine)
-if 'user_psid' not in inspector.get_table_names():
-    with app.app_context():
+with app.app_context():
+    inspector = inspect(db.engine)
+    if 'user_psid' not in inspector.get_table_names():
         db.create_all()
 
 
