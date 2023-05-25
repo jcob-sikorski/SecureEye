@@ -48,12 +48,12 @@ class UserPSID(db.Model):
 class UserCamera(db.Model):
     __tablename__ = 'user_camera'
     CameraId = db.Column(db.Integer, primary_key=True)
-    UserId = db.Column(db.Integer, db.ForeignKey('user_psid.userid'))
+    UserId = db.Column(db.Integer, db.ForeignKey('user_psid.UserId'))  # corrected here
 
 class CameraImage(db.Model):
     __tablename__ = 'camera_image'
     ID = db.Column(db.Integer, primary_key=True)
-    CameraId = db.Column(db.Integer, db.ForeignKey('user_camera.cameraid'))
+    CameraId = db.Column(db.Integer, db.ForeignKey('user_camera.CameraId'))  # corrected here
     ImageUrl = db.Column(db.String(255), nullable=False)
 
 
