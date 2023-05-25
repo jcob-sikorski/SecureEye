@@ -29,11 +29,13 @@ boto3.setup_default_session(aws_access_key_id=S3_ACCESS_KEY,
                             region_name='eu-west-1')
 s3 = boto3.client('s3')
 
-# Configure SQLAlchemy to use PostgreSQL
-db_url = os.getenv('DATABASE_URL')  # use DATABASE_URL instead of separate user, password, host, etc.
+# Load database details from environment variables
+db_name = os.getenv('DB_NAME')
+db_user = os.getenv('DB_USER')
+db_psswd = os.getenv('DB_PSSWD')
 
 # Configure SQLAlchemy to use PostgreSQL
-app.config['SQLALCHEMY_DATABASE_URI'] = db_url
+app.config['SQLALCHEMY_DATABASE_URI'] = f'postgresql://{db_user}:{db_psswd}@ec2-3-83-61-239.compute-1.amazonaws.com/{db_name}'
 db = SQLAlchemy(app)
 
 
