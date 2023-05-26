@@ -127,6 +127,7 @@ def uploadImageToS3():
     # Store image URL in the database
     camera_id = 123  # replace with actual CameraId
 
+    # TODO can't find the user so can't send the response
     # Find the user associated with this CameraId
     user_camera = UserCamera.query.filter_by(CameraId=camera_id).first()
     if user_camera:
@@ -143,9 +144,9 @@ def uploadImageToS3():
 
 # Handle incoming messages from Facebook Messenger
 def handleMessage(sender_psid, received_message):
-
     # Process the received message and send a response
     if 'text' in received_message:
+        sender_psid = int(sender_psid)
         # Check if the user already exists
         user = UserPSID.query.filter_by(PSID=sender_psid).first()
         if not user:
@@ -229,7 +230,6 @@ def webhook():
             else:
                 return 'ERROR', 403
             
-
         data = request.data
         body = json.loads(data.decode('utf-8'))
 
