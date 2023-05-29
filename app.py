@@ -44,16 +44,17 @@ app.config['SQLALCHEMY_DATABASE_URI'] = f'postgresql://{db_user}:{db_psswd}@ec2-
 db = SQLAlchemy(app)
 logger.info("Database initialized")
 
-
+# TODO user's PSID might change if the future so internally should be
+# referenced by the UserId
 # Define database models for SQLAlchemy
 class UserPSID(db.Model):
     __tablename__ = 'user_psid'
-    UserId = db.Column(db.Integer, primary_key=True)
+    PSID = db.Column(db.Integer, primary_key=True)
 
 class UserCamera(db.Model):
     __tablename__ = 'user_camera'
     CameraId = db.Column(db.Integer, primary_key=True)
-    UserId = db.Column(db.Integer, db.ForeignKey('user_psid.UserId'))  # Foreign Key reference to the UserPSID table
+    PSID = db.Column(db.Integer, db.ForeignKey('user_psid.PSID'))  # Foreign Key reference to the UserPSID table
 
 
 with app.app_context():
@@ -139,7 +140,7 @@ def uploadImageToS3():
     # Find the user associated with this CameraId
     user_camera = UserCamera.query.filter_by(CameraId=camera_id).first()
     if user_camera:
-        user = UserPSID.query.filter_by(UserId=user_camera.UserId).first()
+        user = UserPSID.query.filter_by(PSID=user_camera.PSID).first()
         if user:
             # Send the image URL to the Facebook Messenger user
             sendResponseToMessenger(user.PSID, response)
@@ -161,7 +162,7 @@ def handleMessage(sender_psid, received_message):
         user = UserPSID.query.filter_by(PSID=sender_psid).first()
         if not user:
             # Create a new user if it does not exist
-            user = UserPSID(UserId=sender_psid)
+            user = UserPSID(PSID=sender_psid)
             db.session.add(user)
             db.session.flush()  # Make sure the user is added before the camera
 
@@ -170,7 +171,7 @@ def handleMessage(sender_psid, received_message):
 
         # TODO test saving the camera ID in the database
         # Assign the cameraID to the user
-        user_camera = UserCamera(CameraId=camera_id, UserId=sender_psid)
+        user_camera = UserCamera(CameraId=camera_id, PSID=sender_psid)
         db.session.add(user_camera)
         db.session.commit()
         logger.info("Saved the user and camera id to the database.")
