@@ -49,12 +49,12 @@ logger.info("Database initialized")
 # Define database models for SQLAlchemy
 class UserPSID(db.Model):
     __tablename__ = 'user_psid'
-    PSID = db.Column(db.Integer, primary_key=True)
+    PSID = db.Column(db.String, primary_key=True)
 
 class UserCamera(db.Model):
     __tablename__ = 'user_camera'
-    CameraId = db.Column(db.Integer, primary_key=True)
-    PSID = db.Column(db.Integer, db.ForeignKey('user_psid.PSID'))  # Foreign Key reference to the UserPSID table
+    CameraId = db.Column(db.String, primary_key=True)
+    PSID = db.Column(db.String, db.ForeignKey('user_psid.PSID'))  # Foreign Key reference to the UserPSID table
 
 
 with app.app_context():
@@ -133,7 +133,7 @@ def uploadImageToS3():
     }
 
     # Store image URL in the database
-    camera_id = 123  # replace with actual CameraId
+    camera_id = "123"  # replace with actual CameraId
 
     # TODO after getting the registration message from the user, save the PSID in the database
     # TODO can't find the user so can't send the response
@@ -156,7 +156,6 @@ def uploadImageToS3():
 def handleMessage(sender_psid, received_message):
     # Process the received message and send a response
     if 'text' in received_message:
-        sender_psid = int(sender_psid)
         # TODO test saving the user PSID in the database
         # Check if the user already exists
         user = UserPSID.query.filter_by(PSID=sender_psid).first()
@@ -167,7 +166,7 @@ def handleMessage(sender_psid, received_message):
             db.session.flush()  # Make sure the user is added before the camera
 
         # Assuming the text message contains the CameraId
-        camera_id = int(received_message['text'])
+        camera_id = received_message['text']
 
         # TODO test saving the camera ID in the database
         # Assign the cameraID to the user
