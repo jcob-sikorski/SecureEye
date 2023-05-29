@@ -7,13 +7,19 @@ from PIL import Image
 import io
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import inspect
+import logging
 
 # curl -X POST --data-binary "@/Users/jakubsiekiera/Downloads/25percent4x4.png" https://secureeye.herokuapp.com/upload
 # curl -X POST -F "file=@/Users/jakubsiekiera/Downloads/25percent4x4.png" https://secureeye.herokuapp.com/upload
 
+# Create a logger object
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)  # Set log level to INFO. Change it to DEBUG, ERROR, WARN as per your requirement.
+
 # Load environment variables from a .env file
 def configure_secrets():
     load_dotenv()
+    logger.info("Environment Variables Loaded")
 
 configure_secrets()
 
@@ -29,6 +35,7 @@ boto3.setup_default_session(aws_access_key_id=S3_ACCESS_KEY,
                             aws_secret_access_key=S3_SECRET_ACCESS_KEY,
                             region_name='eu-west-1')
 s3 = boto3.client('s3')
+logger.info("AWS S3 client initialized")
 
 # Load database details from environment variables
 db_name = os.getenv('DB_NAME')
@@ -38,6 +45,7 @@ db_psswd = os.getenv('DB_PSSWD')
 # Configure SQLAlchemy to use PostgreSQL
 app.config['SQLALCHEMY_DATABASE_URI'] = f'postgresql://{db_user}:{db_psswd}@ec2-3-83-61-239.compute-1.amazonaws.com/{db_name}'
 db = SQLAlchemy(app)
+logger.info("Database initialized")
 
 
 # Define database models for SQLAlchemy
@@ -55,6 +63,7 @@ with app.app_context():
     inspector = inspect(db.engine)
     if 'user_psid' not in inspector.get_table_names():
         db.create_all()
+    logger.info("Database schema set up")
 
 
 # Define a route for the home page
@@ -83,7 +92,7 @@ def sendResponseToMessenger(sender_psid, response):
 
     url = f'https://graph.facebook.com/v16.0/me/messages?access_token={PAGE_ACCESS_TOKEN}'
     r = requests.post(url, json=payload, headers=headers)
-    print(r.text)
+    logger.info(f"Response sent to messenger. Response text: {r.text}")
 
 
 # TODO reading and saving to the db doen't work, 
@@ -109,10 +118,10 @@ def uploadImageToS3():
     # Define S3 resource instead of client to use the upload_file method
     s3 = boto3.resource('s3')
     s3.Bucket('images-for-messenger').put_object(Key="temp.png", Body=file)
+    logger.info("Image uploaded to S3")
 
     # Create a URL for the uploaded file
     image_url = f"https://images-for-messenger.s3.eu-west-1.amazonaws.com/temp.png"
-    print(image_url)
 
     # Send the URL to the image on S3 bucket to Facebook Messenger User asscoiated with the CameraId
     response = {
@@ -139,7 +148,8 @@ def uploadImageToS3():
         if user:
             # Send the image URL to the Facebook Messenger user
             sendResponseToMessenger(user.PSID, response)
-            
+            logger.info("Sent image URL to Facebook Messenger user")
+
     file.close()  # Ensure to close the file after upload
     os.remove("temp.png")  # Remove the local temporary file
 
@@ -187,20 +197,17 @@ def webhook():
 
         if 'hub.mode' in request.args:
             mode = request.args.get('hub.mode')
-            print(mode)
         if 'hub.verify_token' in request.args:
             token = request.args.get('hub.verify_token')
-            print(token)
         if 'hub.challenge' in request.args:
             challenge = request.args.get('hub.challenge')
-            print(challenge)
 
         if 'hub.mode' in request.args and 'hub.verify_token' in request.args:
             mode = request.args.get('hub.mode')
             token = request.args.get('hub.verify_token')
 
             if mode == 'subscribe' and token == VERIFY_TOKEN:
-                print('WEBHOOK_VERIFIED')
+                logger.info('WEBHOOK_VERIFIED')
 
                 challenge = request.args.get('hub.challenge')
 
@@ -215,20 +222,17 @@ def webhook():
 
         if 'hub.mode' in request.args:
             mode = request.args.get('hub.mode')
-            print(mode)
         if 'hub.verify_token' in request.args:
             token = request.args.get('hub.verify_token')
-            print(token)
         if 'hub.challenge' in request.args:
             challenge = request.args.get('hub.challenge')
-            print(challenge)
 
         if 'hub.mode' in request.args and 'hub.verify_token' in request.args:
             mode = request.args.get('hub.mode')
             token = request.args.get('hub.verify_token')
 
             if mode == 'subscribe' and token == VERIFY_TOKEN:  
-                print('WEBHOOK_VERIFIED')
+                logger.info('WEBHOOK_VERIFIED')
 
                 challenge = request.args.get('hub.challenge')
 
@@ -244,13 +248,12 @@ def webhook():
 
             for entry in entries:
                 webhook_event = entry['messaging'][0]
-                print(webhook_event)
 
                 sender_psid = webhook_event['sender']['id']
-                print(f'Sender PSID: {sender_psid}')
 
                 if 'message' in webhook_event:
                     handleMessage(sender_psid, webhook_event['message'])
+                    logger.info("Handled incoming message")
 
                 return 'EVENT_RECEIVED', 200
         else:
@@ -259,4 +262,5 @@ def webhook():
 
 # Run the Flask web application
 if __name__ == "__main__":
+    logger.info("Running Flask application")
     app.run()
