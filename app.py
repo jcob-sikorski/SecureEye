@@ -86,7 +86,9 @@ def sendResponseToMessenger(sender_psid, response):
     print(r.text)
 
 
-# TODO sending an image to the user from the database doesn't work
+# TODO reading and saving to the db doen't work, 
+# hence the problems with sending the response to the user
+
 # Route for uploading image to AWS S3
 @app.route('/upload', methods=['POST'])
 def uploadImageToS3():
@@ -131,37 +133,37 @@ def uploadImageToS3():
     # TODO after getting the registration message from the user, save the PSID in the database
     # TODO can't find the user so can't send the response
     # Find the user associated with this CameraId
-    # user_camera = UserCamera.query.filter_by(CameraId=camera_id).first()
-    # if user_camera:
-    #     user = UserPSID.query.filter_by(UserId=user_camera.UserId).first()
-    #     if user:
-    #         # Send the image URL to the Facebook Messenger user
-    #         sendResponseToMessenger(user.PSID, response)
-
-    sendResponseToMessenger(sender_psid, response)
+    user_camera = UserCamera.query.filter_by(CameraId=camera_id).first()
+    if user_camera:
+        user = UserPSID.query.filter_by(UserId=user_camera.UserId).first()
+        if user:
+            # Send the image URL to the Facebook Messenger user
+            sendResponseToMessenger(user.PSID, response)
+            
     file.close()  # Ensure to close the file after upload
     os.remove("temp.png")  # Remove the local temporary file
 
     return 'File uploaded successfully', 200
 
 
-# TODO test sending a message from the user to the database
 # Handle incoming messages from Facebook Messenger
 def handleMessage(sender_psid, received_message):
     # Process the received message and send a response
     if 'text' in received_message:
         sender_psid = int(sender_psid)
+        # TODO test saving the user PSID in the database
         # Check if the user already exists
         user = UserPSID.query.filter_by(PSID=sender_psid).first()
         if not user:
             # Create a new user if it does not exist
             user = UserPSID(UserId=sender_psid)
             db.session.add(user)
-            db.session.commit()
+            db.session.flush()  # Make sure the user is added before the camera
 
         # Assuming the text message contains the CameraId
         camera_id = int(received_message['text'])
-        
+
+        # TODO test saving the camera ID in the database
         # Assign the cameraID to the user
         user_camera = UserCamera(CameraId=camera_id, UserId=sender_psid)
         db.session.add(user_camera)
