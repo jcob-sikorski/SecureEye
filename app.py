@@ -87,7 +87,7 @@ def sendResponseToMessenger(sender_psid, response):
 
 
     headers = {
-        'Content-Type': 'application/json'
+        'content-type': 'application/json'
     }
 
     url = f'https://graph.facebook.com/v16.0/me/messages?access_token={PAGE_ACCESS_TOKEN}'
@@ -220,7 +220,7 @@ def webhook():
 
     # Handle incoming POST requests from Facebook Messenger
     if request.method == 'POST':
-
+        logger.info('Received the message from the messenger user.')
         if 'hub.mode' in request.args:
             mode = request.args.get('hub.mode')
         if 'hub.verify_token' in request.args:
@@ -253,6 +253,7 @@ def webhook():
                 sender_psid = webhook_event['sender']['id']
 
                 if 'message' in webhook_event:
+                    # TODO message isn't received from the messenger user
                     logger.info("Message received from Facebook Messenger user")
                     handleMessage(sender_psid, webhook_event['message'])
                     logger.info("Handled incoming message")
