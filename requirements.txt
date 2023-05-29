@@ -19,10 +19,13 @@ jmespath==1.0.1
 linecache2==1.0.0
 Mako==1.2.4
 MarkupSafe==2.1.2
+numpy==1.24.3
+opencv-python==4.7.0.72
 Pillow==9.5.0
 psycopg2-binary==2.9.6
 python-dateutil==2.8.2
 python-dotenv==1.0.0
+pyzbar==0.1.9
 requests==2.30.0
 s3transfer==0.6.1
 six==1.16.0

@@ -8,6 +8,12 @@ import io
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import inspect
 import logging
+import urllib
+from pyzbar.pyzbar import decode
+import cv2
+import numpy as np
+
+# TODO register the camera with the qr code sent to the server which will have the unqiue camera id
 
 # Create a logger object
 logger = logging.getLogger(__name__)
@@ -44,8 +50,8 @@ app.config['SQLALCHEMY_DATABASE_URI'] = f'postgresql://{db_user}:{db_psswd}@ec2-
 db = SQLAlchemy(app)
 logger.info("Database initialized")
 
-# TODO user's PSID might change if the future so internally should be
-# referenced by the UserId
+# TODO user's PSID might change in the future so internally should be
+# referenced by the UserId incremental
 # Define database models for SQLAlchemy
 class UserPSID(db.Model):
     __tablename__ = 'user_psid'
@@ -93,9 +99,6 @@ def sendResponseToMessenger(sender_psid, response):
     logger.info(f"Response sent to messenger. Response text: {r.text}")
 
 
-# TODO reading and saving to the db doesn't work, 
-# hence the problems with sending the response to the user
-
 # Route for uploading image to AWS S3
 @app.route('/upload', methods=['POST'])
 def uploadImageToS3():
@@ -118,6 +121,7 @@ def uploadImageToS3():
     s3.Bucket('images-for-messenger').put_object(Key="temp.png", Body=file)
     logger.info("Image uploaded to S3")
 
+    # TODO url must be unique for each image
     # Create a URL for the uploaded file
     image_url = f"https://images-for-messenger.s3.eu-west-1.amazonaws.com/temp.png"
 
@@ -134,9 +138,7 @@ def uploadImageToS3():
 
     # Store image URL in the database
     camera_id = "123"  # replace with actual CameraId
-
-    # TODO after getting the registration message from the user, save the PSID in the database
-    # TODO can't find the user so can't send the response
+    
     # Find the user associated with this CameraId
     user_camera = UserCamera.query.filter_by(CameraId=camera_id).first()
     if user_camera:
@@ -154,31 +156,54 @@ def uploadImageToS3():
 
 # Handle incoming messages from Facebook Messenger
 def handleMessage(sender_psid, received_message):
+    # TODO add the qr code functionality to register the camera
+
     # Process the received message and send a response
-    if 'text' in received_message:
-        # TODO test saving the user PSID in the database
-        # Check if the user already exists
-        user = UserPSID.query.filter_by(PSID=sender_psid).first()
-        if not user:
-            # Create a new user if it does not exist
-            user = UserPSID(PSID=sender_psid)
-            db.session.add(user)
-            db.session.flush()  # Make sure the user is added before the camera
+    if 'attachments' in received_message:
+        for attachment in received_message['attachments']:
+            if attachment['type'] == 'image':
+                # Get the image URL
+                image_url = attachment['payload']['url']
 
-        # Assuming the text message contains the CameraId
-        camera_id = received_message['text']
+                # Use urllib to download the image
+                image_on_disk, _ = urllib.request.urlretrieve(image_url)
 
-        # TODO test saving the camera ID in the database
-        # Assign the cameraID to the user
-        user_camera = UserCamera(CameraId=camera_id, PSID=sender_psid)
-        db.session.add(user_camera)
-        db.session.commit()
-        logger.info("Saved the user and camera id to the database.")
+                # Convert image into .png format
+                image = Image.open(image_on_disk)
+                image.save("temp.png")
 
-        response = {
-            'text': f"Successfully registered your camera!"
-        }
-        sendResponseToMessenger(sender_psid, response)
+                # Decode the QR code from the image
+                image = cv2.imread("temp.png")
+                qr_decoded = decode(image)
+
+                # If QR code is decoded successfully, get the CameraId
+                if qr_decoded:
+                    # TODO allow the user for being able to perform multiple reregistrations if the first one was accidental
+                    camera_id = qr_decoded[0].data.decode("utf-8")
+                    logger.info("Decoded the QR code.")
+                else:
+                    return 'Could not decode QR code', 400
+
+                os.remove("temp.png")  # Remove the local temporary file
+
+                # Check if the user already exists
+                user = UserPSID.query.filter_by(PSID=sender_psid).first()
+                if not user:
+                    # Create a new user if it does not exist
+                    user = UserPSID(PSID=sender_psid)
+                    db.session.add(user)
+                    db.session.flush()  # Make sure the user is added before the camera
+
+                # Assign the cameraID to the user
+                user_camera = UserCamera(CameraId=camera_id, PSID=sender_psid)
+                db.session.add(user_camera)
+                db.session.commit()
+                logger.info("Saved the user and camera id to the database.")
+
+                response = {
+                    'text': f"Successfully registered your camera!"
+                }
+                sendResponseToMessenger(sender_psid, response)
 
 
 
