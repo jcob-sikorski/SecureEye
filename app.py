@@ -163,21 +163,22 @@ def handleMessage(sender_psid, received_message):
         sender_psid = int(sender_psid)
         # TODO test saving the user PSID in the database
         # Check if the user already exists
-        user = UserPSID.query.filter_by(PSID=sender_psid).first()
-        if not user:
-            # Create a new user if it does not exist
-            user = UserPSID(UserId=sender_psid)
-            db.session.add(user)
-            db.session.flush()  # Make sure the user is added before the camera
+        # user = UserPSID.query.filter_by(PSID=sender_psid).first()
+        # if not user:
+        #     # Create a new user if it does not exist
+        #     user = UserPSID(UserId=sender_psid)
+        #     db.session.add(user)
+        #     db.session.flush()  # Make sure the user is added before the camera
 
-        # Assuming the text message contains the CameraId
-        camera_id = int(received_message['text'])
+        # # Assuming the text message contains the CameraId
+        # camera_id = int(received_message['text'])
 
-        # TODO test saving the camera ID in the database
-        # Assign the cameraID to the user
-        user_camera = UserCamera(CameraId=camera_id, UserId=sender_psid)
-        db.session.add(user_camera)
-        db.session.commit()
+        # # TODO test saving the camera ID in the database
+        # # Assign the cameraID to the user
+        # user_camera = UserCamera(CameraId=camera_id, UserId=sender_psid)
+        # db.session.add(user_camera)
+        # db.session.commit()
+        logger.info("Message received from Facebook Messenger user")
 
         response = {
             'text': f"Successfully registered your camera!"
