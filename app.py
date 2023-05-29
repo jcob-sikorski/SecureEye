@@ -178,7 +178,7 @@ def handleMessage(sender_psid, received_message):
         # user_camera = UserCamera(CameraId=camera_id, UserId=sender_psid)
         # db.session.add(user_camera)
         # db.session.commit()
-        logger.info("Message received from Facebook Messenger user")
+        logger.info("Message is retrieved by the server.")
 
         response = {
             'text': f"Successfully registered your camera!"
@@ -253,6 +253,7 @@ def webhook():
                 sender_psid = webhook_event['sender']['id']
 
                 if 'message' in webhook_event:
+                    logger.info("Message received from Facebook Messenger user")
                     handleMessage(sender_psid, webhook_event['message'])
                     logger.info("Handled incoming message")
 
