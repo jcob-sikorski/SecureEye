@@ -9,9 +9,6 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import inspect
 import logging
 
-# curl -X POST --data-binary "@/Users/jakubsiekiera/Downloads/25percent4x4.png" https://secureeye.herokuapp.com/upload
-# curl -X POST -F "file=@/Users/jakubsiekiera/Downloads/25percent4x4.png" https://secureeye.herokuapp.com/upload
-
 # Create a logger object
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)  # Set log level to INFO. Change it to DEBUG, ERROR, WARN as per your requirement.
@@ -95,7 +92,7 @@ def sendResponseToMessenger(sender_psid, response):
     logger.info(f"Response sent to messenger. Response text: {r.text}")
 
 
-# TODO reading and saving to the db doen't work, 
+# TODO reading and saving to the db doesn't work, 
 # hence the problems with sending the response to the user
 
 # Route for uploading image to AWS S3
@@ -134,8 +131,6 @@ def uploadImageToS3():
         }
     }
 
-    sender_psid = "5930112510450871"
-
     # Store image URL in the database
     camera_id = 123  # replace with actual CameraId
 
@@ -163,22 +158,22 @@ def handleMessage(sender_psid, received_message):
         sender_psid = int(sender_psid)
         # TODO test saving the user PSID in the database
         # Check if the user already exists
-        # user = UserPSID.query.filter_by(PSID=sender_psid).first()
-        # if not user:
-        #     # Create a new user if it does not exist
-        #     user = UserPSID(UserId=sender_psid)
-        #     db.session.add(user)
-        #     db.session.flush()  # Make sure the user is added before the camera
+        user = UserPSID.query.filter_by(PSID=sender_psid).first()
+        if not user:
+            # Create a new user if it does not exist
+            user = UserPSID(UserId=sender_psid)
+            db.session.add(user)
+            db.session.flush()  # Make sure the user is added before the camera
 
-        # # Assuming the text message contains the CameraId
-        # camera_id = int(received_message['text'])
+        # Assuming the text message contains the CameraId
+        camera_id = int(received_message['text'])
 
-        # # TODO test saving the camera ID in the database
-        # # Assign the cameraID to the user
-        # user_camera = UserCamera(CameraId=camera_id, UserId=sender_psid)
-        # db.session.add(user_camera)
-        # db.session.commit()
-        logger.info("Message is retrieved by the server.")
+        # TODO test saving the camera ID in the database
+        # Assign the cameraID to the user
+        user_camera = UserCamera(CameraId=camera_id, UserId=sender_psid)
+        db.session.add(user_camera)
+        db.session.commit()
+        logger.info("Saved the user and camera id to the database.")
 
         response = {
             'text': f"Successfully registered your camera!"
@@ -220,7 +215,9 @@ def webhook():
 
     # Handle incoming POST requests from Facebook Messenger
     if request.method == 'POST':
+
         logger.info('Received the message from the messenger user.')
+
         if 'hub.mode' in request.args:
             mode = request.args.get('hub.mode')
         if 'hub.verify_token' in request.args:
@@ -253,8 +250,6 @@ def webhook():
                 sender_psid = webhook_event['sender']['id']
 
                 if 'message' in webhook_event:
-                    # TODO message isn't received from the messenger user
-                    logger.info("Message received from Facebook Messenger user")
                     handleMessage(sender_psid, webhook_event['message'])
                     logger.info("Handled incoming message")
 
