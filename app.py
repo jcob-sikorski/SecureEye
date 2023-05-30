@@ -177,16 +177,17 @@ def handleMessage(sender_psid, received_message):
                 logger.info(f"saved the image")
 
                 # Decode the QR code from the image
-                image = cv2.imread("temp.png")
-                logger.info(f"cv2 read the image")
-                qr_decoded = decode(image)
-                logger.info(f"decoded the image")
+                img = cv2.imread('temp.png', cv2.IMREAD_GRAYSCALE)
+                _, img2 = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+
+                qrCodeDetector = cv2.QRCodeDetector()
+                decodedText, _, _ = qrCodeDetector.detectAndDecode(img2)
 
                 # If QR code is decoded successfully, get the CameraId
-                if qr_decoded:
+                if decodedText:
                     logger.info(f"QR code is decoded successfully")
                     # TODO allow the user for being able to perform multiple reregistrations if the first one was accidental
-                    camera_id = qr_decoded[0].data.decode("utf-8")
+                    camera_id = decodedText
                     logger.info("Decoded the QR code.")
                 else:
                     logger.info(f"Could not decode QR code")
