@@ -20,7 +20,7 @@ linecache2==1.0.0
 Mako==1.2.4
 MarkupSafe==2.1.2
 numpy==1.24.3
-opencv-python==4.7.0.72
+opencv-python-headless==4.2.0.32
 Pillow==9.5.0
 psycopg2-binary==2.9.6
 pypng==0.20220715.0
