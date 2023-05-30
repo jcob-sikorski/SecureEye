@@ -136,8 +136,9 @@ def uploadImageToS3():
         }
     }
 
+    # TODO replace with the actual camera id
     # Store image URL in the database
-    camera_id = "123"  # replace with actual CameraId
+    camera_id = "123" 
     
     # Find the user associated with this CameraId
     user_camera = UserCamera.query.filter_by(CameraId=camera_id).first()
@@ -157,7 +158,7 @@ def uploadImageToS3():
 # Handle incoming messages from Facebook Messenger
 def handleMessage(sender_psid, received_message):
     # TODO add the qr code functionality to register the camera
-
+    logger.info(f"The structure of the message received is: {received_message}")
     # Process the received message and send a response
     if 'attachments' in received_message:
         for attachment in received_message['attachments']:
