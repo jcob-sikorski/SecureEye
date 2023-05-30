@@ -1,8 +1,5 @@
 # custom
-test_db.py
 qr_code_generator.py
-db.sql
-attachment_structure.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

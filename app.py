@@ -9,11 +9,8 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import inspect
 import logging
 import urllib
-from pyzbar.pyzbar import decode
 import cv2
-import numpy as np
-
-# TODO register the camera with the qr code sent to the server which will have the unqiue camera id
+import uuid
 
 # Create a logger object
 logger = logging.getLogger(__name__)
@@ -118,12 +115,13 @@ def uploadImageToS3():
 
     # Define S3 resource instead of client to use the upload_file method
     s3 = boto3.resource('s3')
-    s3.Bucket('images-for-messenger').put_object(Key="temp.png", Body=file)
+    key = str(uuid.uuid4()) + ".png"
+    s3.Bucket('images-for-messenger').put_object(Key=key, Body=file)
     logger.info("Image uploaded to S3")
 
     # TODO url must be unique for each image
     # Create a URL for the uploaded file
-    image_url = f"https://images-for-messenger.s3.eu-west-1.amazonaws.com/temp.png"
+    image_url = f"https://images-for-messenger.s3.eu-west-1.amazonaws.com/{key}"
 
     # Send the URL to the image on S3 bucket to Facebook Messenger User asscoiated with the CameraId
     response = {
@@ -160,21 +158,17 @@ def handleMessage(sender_psid, received_message):
     # TODO add the qr code functionality to register the camera
     # Process the received message and send a response
     if 'attachments' in received_message:
-        logger.info(f"attachments are in the received message")
         for attachment in received_message['attachments']:
             if attachment['type'] == 'image':
-                logger.info(f"attachment type is the image")
                 # Get the image URL
                 image_url = attachment['payload']['url']
 
                 # Use urllib to download the image
                 image_on_disk, _ = urllib.request.urlretrieve(image_url)
-                logger.info(f"downloaded the image from the url")
 
                 # Convert image into .png format
                 image = Image.open(image_on_disk)
                 image.save("temp.png")
-                logger.info(f"saved the image")
 
                 # Decode the QR code from the image
                 img = cv2.imread('temp.png', cv2.IMREAD_GRAYSCALE)
