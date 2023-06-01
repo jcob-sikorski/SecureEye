@@ -11,6 +11,9 @@ import logging
 import urllib
 import cv2
 import uuid
+from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing.image import load_img, img_to_array
+import numpy as np
 
 # Create a logger object
 logger = logging.getLogger(__name__)
@@ -71,6 +74,24 @@ with app.app_context():
 @app.route('/')
 def home():
     return "Say 'Hi!' to SecureEye!"
+
+
+# Load the model
+model = load_model('/path_to_your_model/model_v1_without_augmentation_human_detection_dataset.h5')
+
+# Define the image classification function
+def is_human(image_path, model):
+    # Load and preprocess the image
+    img = load_img(image_path, target_size=(224, 224))  # Assuming you trained on (224, 224) images
+    img = img_to_array(img)
+    img = np.expand_dims(img, axis=0)
+    img /= 255.0
+
+    # Predict the class of the image
+    prediction = model.predict(img)
+
+    # Assume '1' corresponds to 'human'
+    return np.argmax(prediction, axis=1)[0] > 0.8
 
 
 # Send response message to a Facebook Messenger user
@@ -136,16 +157,20 @@ def uploadImageToS3():
 
     # TODO replace with the actual camera id
     # Store image URL in the database
-    camera_id = "123" 
+    camera_id = "123"
     
-    # Find the user associated with this CameraId
-    user_camera = UserCamera.query.filter_by(CameraId=camera_id).first()
-    if user_camera:
-        user = UserPSID.query.filter_by(PSID=user_camera.PSID).first()
-        if user:
-            # Send the image URL to the Facebook Messenger user
-            sendResponseToMessenger(user.PSID, response)
-            logger.info("Sent image URL to Facebook Messenger user")
+    if is_human("temp.png", model):
+        logger.info("Human detected in the image")
+        # Find the user associated with this CameraId
+        user_camera = UserCamera.query.filter_by(CameraId=camera_id).first()
+        if user_camera:
+            user = UserPSID.query.filter_by(PSID=user_camera.PSID).first()
+            if user:
+                # Send the image URL to the Facebook Messenger user
+                sendResponseToMessenger(user.PSID, response)
+                logger.info("Sent image URL to Facebook Messenger user")
+    else:
+        logger.info("No human detected in the image")
 
     file.close()  # Ensure to close the file after upload
     os.remove("temp.png")  # Remove the local temporary file
@@ -183,29 +208,30 @@ def handleMessage(sender_psid, received_message):
                     # TODO allow the user for being able to perform multiple reregistrations if the first one was accidental
                     camera_id = decodedText
                     logger.info("Decoded the QR code.")
+                    # Check if the user already exists
+                    user = UserPSID.query.filter_by(PSID=sender_psid).first()
+                    if not user:
+                        # Create a new user if it does not exist
+                        user = UserPSID(PSID=sender_psid)
+                        db.session.add(user)
+                        db.session.flush()  # Make sure the user is added before the camera
+    
+                    # Assign the cameraID to the user
+                    user_camera = UserCamera(CameraId=camera_id, PSID=sender_psid)
+                    db.session.add(user_camera)
+                    db.session.commit()
+                    logger.info("Saved the user and camera id to the database.")
+    
+                    response = {
+                        'text': f"Successfully registered your camera!"
+                    }
                 else:
                     logger.info(f"Could not decode QR code")
-                    return 'Could not decode QR code', 400
+                    response = {
+                        'text': f"Could not decode QR code. Please try again."
+                    }
 
                 os.remove("temp.png")  # Remove the local temporary file
-
-                # Check if the user already exists
-                user = UserPSID.query.filter_by(PSID=sender_psid).first()
-                if not user:
-                    # Create a new user if it does not exist
-                    user = UserPSID(PSID=sender_psid)
-                    db.session.add(user)
-                    db.session.flush()  # Make sure the user is added before the camera
-
-                # Assign the cameraID to the user
-                user_camera = UserCamera(CameraId=camera_id, PSID=sender_psid)
-                db.session.add(user_camera)
-                db.session.commit()
-                logger.info("Saved the user and camera id to the database.")
-
-                response = {
-                    'text': f"Successfully registered your camera!"
-                }
                 sendResponseToMessenger(sender_psid, response)
 
 
