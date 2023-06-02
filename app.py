@@ -15,6 +15,11 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 import numpy as np
 
+# TODO app size is too large without even for the model ~424 of 500 MB
+# TODO try to reduce the size of the app
+# TODO why the messenger can't send the image to the app
+# TODO can't decode the QR code
+
 # Create a logger object
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)  # Set log level to INFO. Change it to DEBUG, ERROR, WARN as per your requirement.
@@ -77,7 +82,7 @@ def home():
 
 
 # Load the model
-model = load_model('/path_to_your_model/model_v1_without_augmentation_human_detection_dataset.h5')
+model = load_model('model_v1_without_augmentation_human_detection_dataset.h5')
 
 # Define the image classification function
 def is_human(image_path, model):
