@@ -106,8 +106,11 @@ def sendResponseToMessenger(sender_psid, response):
 def uploadImageToS3():
     # TODO send the curl request with the camera id included with image data
 
-    # Retrieve and process image data from the request
-    image_raw_bytes = request.get_data() 
+    # Retrieve the file from the request
+    image_raw_bytes = request.files['img']
+
+    # Retrieve the camera_id from the request
+    camera_id = request.form.get('camera_id')
 
     # Convert raw bytes into Image object
     image = Image.open(io.BytesIO(image_raw_bytes))
@@ -138,10 +141,6 @@ def uploadImageToS3():
             }
         }
     }
-
-    # TODO replace with the actual camera id
-    # Store image URL in the database
-    camera_id = "123"
     
     # TODO update user's PSID if it has changed
     # Find the user associated with this CameraId
