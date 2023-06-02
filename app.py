@@ -143,6 +143,7 @@ def uploadImageToS3():
     # Store image URL in the database
     camera_id = "123"
     
+    # TODO update user's PSID if it has changed
     # Find the user associated with this CameraId
     user_camera = UserCamera.query.filter_by(CameraId=camera_id).first()
     if user_camera:
@@ -281,8 +282,9 @@ def webhook():
             for entry in entries:
                 webhook_event = entry['messaging'][0]
 
+                # TODO update user's PSID if it has changed
                 sender_psid = webhook_event['sender']['id']
-
+                logger.info(f"Sender PSID: {sender_psid}")
                 if 'message' in webhook_event:
                     handleMessage(sender_psid, webhook_event['message'])
                     logger.info("Handled incoming message")
