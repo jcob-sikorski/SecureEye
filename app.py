@@ -104,14 +104,13 @@ def sendResponseToMessenger(sender_psid, response):
 # Route for uploading image to AWS S3
 @app.route('/upload', methods=['POST'])
 def uploadImageToS3():
-    # check if the post request has the file part
-
-    file = request.files['file']
-
     # TODO send the curl request with the camera id included with image data
 
+    # Retrieve and process image data from the request
+    image_raw_bytes = request.get_data() 
+
     # Convert raw bytes into Image object
-    image = Image.open(io.BytesIO(file.read()))
+    image = Image.open(io.BytesIO(image_raw_bytes))
 
     # Convert image into .png format
     image.save("temp.png")
