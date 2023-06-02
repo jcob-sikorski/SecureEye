@@ -12,9 +12,7 @@ import urllib
 import cv2
 import uuid
 
-# TODO app size is too large without even for the model ~424 of 500 MB
 # TODO try to reduce the size of the app
-# TODO why the messenger can't send the image to the app
 # TODO can't decode the QR code
 
 # Create a logger object
@@ -107,8 +105,6 @@ def sendResponseToMessenger(sender_psid, response):
 # Route for uploading image to AWS S3
 @app.route('/upload', methods=['POST'])
 def uploadImageToS3():
-    # TODO send the curl request with the camera id included with image data
-
     # Retrieve the file from the request
     image_raw_bytes = request.files['img']
 
@@ -121,16 +117,12 @@ def uploadImageToS3():
     # Convert image into .png format
     image.save("temp.png")
 
-    # Open the saved image file in read bytes mode
-    file = open("temp.png", "rb")
-
     # Define S3 resource instead of client to use the upload_file method
     s3 = boto3.resource('s3')
     key = str(uuid.uuid4()) + ".png"
-    s3.Bucket('images-for-messenger').put_object(Key=key, Body=file)
+    s3.Bucket('images-for-messenger').put_object(Key=key, Body=image)
     logger.info("Image uploaded to S3")
 
-    # TODO url must be unique for each image
     # Create a URL for the uploaded file
     image_url = f"https://images-for-messenger.s3.eu-west-1.amazonaws.com/{key}"
 
@@ -155,7 +147,6 @@ def uploadImageToS3():
             sendResponseToMessenger(user.PSID, response)
             logger.info("Sent image URL to Facebook Messenger user")
 
-    file.close()  # Ensure to close the file after upload
     os.remove("temp.png")  # Remove the local temporary file
 
     return 'File uploaded successfully', 200
@@ -163,7 +154,6 @@ def uploadImageToS3():
 
 # Handle incoming messages from Facebook Messenger
 def handleMessage(sender_psid, received_message):
-    # TODO add the qr code functionality to register the camera
     # Process the received message and send a response
     if 'attachments' in received_message:
         for attachment in received_message['attachments']:
@@ -284,7 +274,6 @@ def webhook():
             for entry in entries:
                 webhook_event = entry['messaging'][0]
 
-                # TODO update user's PSID if it has changed
                 sender_psid = webhook_event['sender']['id']
                 logger.info(f"Sender PSID: {sender_psid}")
                 if 'message' in webhook_event:
