@@ -11,9 +11,6 @@ import logging
 import urllib
 import cv2
 import uuid
-from tensorflow.keras.models import load_model
-from tensorflow.keras.preprocessing.image import load_img, img_to_array
-import numpy as np
 
 # TODO app size is too large without even for the model ~424 of 500 MB
 # TODO try to reduce the size of the app
@@ -81,24 +78,6 @@ def home():
     return "Say 'Hi!' to SecureEye!"
 
 
-# Load the model
-model = load_model('model_v1_without_augmentation_human_detection_dataset.h5')
-
-# Define the image classification function
-def is_human(image_path, model):
-    # Load and preprocess the image
-    img = load_img(image_path, target_size=(224, 224))  # Assuming you trained on (224, 224) images
-    img = img_to_array(img)
-    img = np.expand_dims(img, axis=0)
-    img /= 255.0
-
-    # Predict the class of the image
-    prediction = model.predict(img)
-
-    # Assume '1' corresponds to 'human'
-    return np.argmax(prediction, axis=1)[0] > 0.8
-
-
 # Send response message to a Facebook Messenger user
 def sendResponseToMessenger(sender_psid, response):
     PAGE_ACCESS_TOKEN = os.getenv('PAGE_ACCESS_TOKEN')
@@ -164,18 +143,14 @@ def uploadImageToS3():
     # Store image URL in the database
     camera_id = "123"
     
-    if is_human("temp.png", model):
-        logger.info("Human detected in the image")
-        # Find the user associated with this CameraId
-        user_camera = UserCamera.query.filter_by(CameraId=camera_id).first()
-        if user_camera:
-            user = UserPSID.query.filter_by(PSID=user_camera.PSID).first()
-            if user:
-                # Send the image URL to the Facebook Messenger user
-                sendResponseToMessenger(user.PSID, response)
-                logger.info("Sent image URL to Facebook Messenger user")
-    else:
-        logger.info("No human detected in the image")
+    # Find the user associated with this CameraId
+    user_camera = UserCamera.query.filter_by(CameraId=camera_id).first()
+    if user_camera:
+        user = UserPSID.query.filter_by(PSID=user_camera.PSID).first()
+        if user:
+            # Send the image URL to the Facebook Messenger user
+            sendResponseToMessenger(user.PSID, response)
+            logger.info("Sent image URL to Facebook Messenger user")
 
     file.close()  # Ensure to close the file after upload
     os.remove("temp.png")  # Remove the local temporary file
