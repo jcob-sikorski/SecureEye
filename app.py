@@ -101,6 +101,9 @@ def sendResponseToMessenger(sender_psid, response):
     logger.info(f"Response sent to messenger. Response text: {r.text}")
 
 
+# curl -X POST -H "Content-Type: multipart/form-data" --data-binary "@/Users/jakubsiekiera/Downloads/photo.png" -F "camera_id=123" https://secureeye.herokuapp.com/upload
+# curl -X POST --data-binary "@/Users/jakubsiekiera/Downloads/photo.png" https://secureeye.herokuapp.com/upload 
+
 # Route for uploading image to AWS S3
 @app.route('/upload', methods=['POST'])
 def uploadImageToS3():
@@ -113,7 +116,7 @@ def uploadImageToS3():
     camera_id = request.form.get('camera_id')
 
     # Convert raw bytes into Image object
-    image = Image.open(io.BytesIO(image_raw_bytes))
+    image = Image.open(io.BytesIO(image_raw_bytes.read()))
 
     # Convert image into .png format
     image.save("temp.png")
