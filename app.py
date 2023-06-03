@@ -11,10 +11,12 @@ import logging
 import urllib
 import cv2
 import uuid
-import tflite_runtime.interpreter as tflite
+import tensorflow as tf
 import numpy as np
 
 # curl -X POST -F "img=@/Users/jakubsiekiera/Downloads/photo.png" -F "camera_id=123" https://secureeye.herokuapp.com/upload
+
+# TODO try to reduce the size of the app
 
 # Create a logger object
 logger = logging.getLogger(__name__)
@@ -78,7 +80,7 @@ MODEL_PATH = os.getenv('MODEL_PATH')
 s3.download_file('images-for-messenger', MODEL_FILE_NAME, MODEL_PATH)
 
 # Load TFLite model and allocate tensors.
-interpreter = tflite.Interpreter(model_path=MODEL_PATH)
+interpreter = tf.lite.Interpreter(model_path=MODEL_PATH)
 interpreter.allocate_tensors()
 
 # Get input and output tensors.
