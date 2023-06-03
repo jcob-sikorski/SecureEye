@@ -11,8 +11,10 @@ import logging
 import urllib
 import cv2
 import uuid
-import tensorflow as tf
+import tflite_runtime.interpreter as tflite
 import numpy as np
+
+# curl -X POST -F "img=@/Users/jakubsiekiera/Downloads/photo.png" -F "camera_id=123" https://secureeye.herokuapp.com/upload
 
 # TODO try to reduce the size of the app
 
@@ -78,7 +80,7 @@ MODEL_PATH = os.getenv('MODEL_PATH')
 s3.download_file('images-for-messenger', MODEL_FILE_NAME, MODEL_PATH)
 
 # Load TFLite model and allocate tensors.
-interpreter = tf.lite.Interpreter(model_path=MODEL_PATH)
+interpreter = tflite.Interpreter(model_path=MODEL_PATH)
 interpreter.allocate_tensors()
 
 # Get input and output tensors.
@@ -167,6 +169,7 @@ def uploadImageToS3():
 
     # If the human is in the image, send the image URL to the Facebook Messenger user
     if prediction[1] == 1:
+        logger.info("Human detected in the image")
         # Create a URL for the uploaded file
         image_url = f"https://images-for-messenger.s3.eu-west-1.amazonaws.com/{key}"
 
@@ -191,6 +194,8 @@ def uploadImageToS3():
                 # Send the image URL to the Facebook Messenger user
                 sendResponseToMessenger(user.PSID, response)
                 logger.info("Sent image URL to Facebook Messenger user")
+    else:
+        logger.info("Human not detected in the image")
 
     return 'File uploaded successfully', 200
 
