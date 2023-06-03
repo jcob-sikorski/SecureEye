@@ -135,7 +135,7 @@ def uploadImageToS3():
     # Send the URL to the image on S3 bucket to Facebook Messenger User asscoiated with the CameraId
     response = {
         'attachment': {
-            'type': 'image',
+            'type': 'file',
             'payload': {
                 'url': image_url,
                 'is_reusable': True
