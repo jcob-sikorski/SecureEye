@@ -16,8 +16,6 @@ import numpy as np
 
 # curl -X POST -F "img=@/Users/jakubsiekiera/Downloads/photo.png" -F "camera_id=123" https://secureeye.herokuapp.com/upload
 
-# TODO try to reduce the size of the app
-
 # Create a logger object
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)  # Set log level to INFO. Change it to DEBUG, ERROR, WARN as per your requirement.
