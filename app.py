@@ -124,7 +124,7 @@ def uploadImageToS3():
     # Define S3 resource instead of client to use the upload_file method
     s3 = boto3.resource('s3')
     key = str(uuid.uuid4()) + ".png"
-    
+
     # Put image into S3 bucket
     s3.Bucket('images-for-messenger').put_object(Key=key, Body=image_byte_value)
     logger.info("Image uploaded to S3")
@@ -152,8 +152,6 @@ def uploadImageToS3():
             # Send the image URL to the Facebook Messenger user
             sendResponseToMessenger(user.PSID, response)
             logger.info("Sent image URL to Facebook Messenger user")
-
-    file.close()  # Ensure to close the file after upload
 
     return 'File uploaded successfully', 200
 
