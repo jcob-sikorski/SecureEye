@@ -148,6 +148,7 @@ def uploadImageToS3():
     user_camera = UserCamera.query.filter_by(CameraId=camera_id).first()
     if user_camera:
         user = UserPSID.query.filter_by(PSID=user_camera.PSID).first()
+        logger.info("Found the user associated with the CameraId")
         if user:
             # Send the image URL to the Facebook Messenger user
             sendResponseToMessenger(user.PSID, response)
