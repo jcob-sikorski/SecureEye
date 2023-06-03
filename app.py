@@ -99,12 +99,10 @@ def sendResponseToMessenger(sender_psid, response):
     logger.info(f"Response sent to messenger. Response text: {r.text}")
 
 
-# curl -X POST -H "Content-Type: multipart/form-data" --data-binary "@/Users/jakubsiekiera/Downloads/photo.png" -F "camera_id=123" https://secureeye.herokuapp.com/upload
-# curl -X POST --data-binary "@/Users/jakubsiekiera/Downloads/photo.png" https://secureeye.herokuapp.com/upload 
-
 # Route for uploading image to AWS S3
 @app.route('/upload', methods=['POST'])
 def uploadImageToS3():
+    # TODO fix: INFO:app:Response sent to messenger. Response text: {"error":{"message":"(#100) Upload attachment failure.","type":"OAuthException","code":100
     # Retrieve the file from the request
     image_raw_bytes = request.files['img']
 
@@ -114,13 +112,21 @@ def uploadImageToS3():
     # Convert raw bytes into Image object
     image = Image.open(io.BytesIO(image_raw_bytes.read()))
 
-    # Convert image into .png format
-    image.save("temp.png")
+    # Create a bytes buffer
+    image_byte_arr = io.BytesIO()
+
+    # Save the image to the bytes buffer in PNG format
+    image.save(image_byte_arr, format='PNG')
+
+    # Get the byte value of the buffer
+    image_byte_value = image_byte_arr.getvalue()
 
     # Define S3 resource instead of client to use the upload_file method
     s3 = boto3.resource('s3')
     key = str(uuid.uuid4()) + ".png"
-    s3.Bucket('images-for-messenger').put_object(Key=key, Body=image)
+    
+    # Put image into S3 bucket
+    s3.Bucket('images-for-messenger').put_object(Key=key, Body=image_byte_value)
     logger.info("Image uploaded to S3")
 
     # Create a URL for the uploaded file
@@ -147,7 +153,7 @@ def uploadImageToS3():
             sendResponseToMessenger(user.PSID, response)
             logger.info("Sent image URL to Facebook Messenger user")
 
-    os.remove("temp.png")  # Remove the local temporary file
+    file.close()  # Ensure to close the file after upload
 
     return 'File uploaded successfully', 200
 
@@ -206,7 +212,6 @@ def handleMessage(sender_psid, received_message):
 
                 os.remove("temp.png")  # Remove the local temporary file
                 sendResponseToMessenger(sender_psid, response)
-
 
 
 VERIFY_TOKEN = os.getenv('VERIFY_TOKEN') # Replace this with your verify token
