@@ -11,9 +11,10 @@ import logging
 import urllib
 import cv2
 import uuid
+import tflite_runtime.interpreter as tflite
+import numpy as np
 
 # TODO try to reduce the size of the app
-# TODO can't decode the QR code
 
 # Create a logger object
 logger = logging.getLogger(__name__)
@@ -70,6 +71,21 @@ with app.app_context():
     logger.info("Database schema set up")
 
 
+MODEL_FILE_NAME = os.getenv('MODEL_FILE_NAME')
+MODEL_PATH = os.getenv('MODEL_PATH')
+
+# Download the model file to the local (Heroku Dyno) file system
+s3.download_file('images-for-messenger', MODEL_FILE_NAME, MODEL_PATH)
+
+# Load TFLite model and allocate tensors.
+interpreter = tflite.Interpreter(model_path=MODEL_PATH)
+interpreter.allocate_tensors()
+
+# Get input and output tensors.
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
+
+
 # Define a route for the home page
 @app.route('/')
 def home():
@@ -102,7 +118,6 @@ def sendResponseToMessenger(sender_psid, response):
 # Route for uploading image to AWS S3
 @app.route('/upload', methods=['POST'])
 def uploadImageToS3():
-    # TODO fix: INFO:app:Response sent to messenger. Response text: {"error":{"message":"(#100) Upload attachment failure.","type":"OAuthException","code":100
     # Retrieve the file from the request
     image_raw_bytes = request.files['img']
 
@@ -111,6 +126,27 @@ def uploadImageToS3():
 
     # Convert raw bytes into Image object
     image = Image.open(io.BytesIO(image_raw_bytes.read()))
+
+    # Resize the image to the size your model expects
+    image_for_model = image.resize((224, 224))
+
+    # Convert image to numpy array and normalize it
+    image_for_model = np.array(image_for_model) / 255.0
+
+    image_for_model = np.expand_dims(image_for_model, axis=0).astype(np.float32)
+
+    # Set tensor to image
+    interpreter.set_tensor(input_details[0]['index'], image_for_model)
+
+    # Run inference
+    interpreter.invoke()
+
+    # Get output tensor
+    output_data = interpreter.get_tensor(output_details[0]['index'])
+
+    # Normalize prediction
+    prediction = np.zeros_like(output_data[0])
+    prediction[np.argmax(output_data[0])] = 1
 
     # Create a bytes buffer
     image_byte_arr = io.BytesIO()
@@ -129,30 +165,32 @@ def uploadImageToS3():
     s3.Bucket('images-for-messenger').put_object(Key=key, Body=image_byte_value)
     logger.info("Image uploaded to S3")
 
-    # Create a URL for the uploaded file
-    image_url = f"https://images-for-messenger.s3.eu-west-1.amazonaws.com/{key}"
+    # If the human is in the image, send the image URL to the Facebook Messenger user
+    if prediction[1] == 1:
+        # Create a URL for the uploaded file
+        image_url = f"https://images-for-messenger.s3.eu-west-1.amazonaws.com/{key}"
 
-    # Send the URL to the image on S3 bucket to Facebook Messenger User asscoiated with the CameraId
-    response = {
-        'attachment': {
-            'type': 'file',
-            'payload': {
-                'url': image_url,
-                'is_reusable': True
+        # Send the URL to the image on S3 bucket to Facebook Messenger User asscoiated with the CameraId
+        response = {
+            'attachment': {
+                'type': 'file',
+                'payload': {
+                    'url': image_url,
+                    'is_reusable': True
+                }
             }
         }
-    }
-    
-    # TODO update user's PSID if it has changed
-    # Find the user associated with this CameraId
-    user_camera = UserCamera.query.filter_by(CameraId=camera_id).first()
-    if user_camera:
-        user = UserPSID.query.filter_by(PSID=user_camera.PSID).first()
-        logger.info("Found the user associated with the CameraId")
-        if user:
-            # Send the image URL to the Facebook Messenger user
-            sendResponseToMessenger(user.PSID, response)
-            logger.info("Sent image URL to Facebook Messenger user")
+
+        # TODO update user's PSID if it has changed
+        # Find the user associated with this CameraId
+        user_camera = UserCamera.query.filter_by(CameraId=camera_id).first()
+        if user_camera:
+            user = UserPSID.query.filter_by(PSID=user_camera.PSID).first()
+            logger.info("Found the user associated with the CameraId")
+            if user:
+                # Send the image URL to the Facebook Messenger user
+                sendResponseToMessenger(user.PSID, response)
+                logger.info("Sent image URL to Facebook Messenger user")
 
     return 'File uploaded successfully', 200
 
