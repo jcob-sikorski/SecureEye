@@ -13,10 +13,13 @@ import tensorflow as tf
 import numpy as np
 from tinydb import TinyDB, Query
 import telegram
+from telegram import Bot
+from telegram import Update
+from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters
+from multiprocessing import Process
 
 # TODO test reqistering the camera to user
 # TODO test uploading image from camera to the user
-
 
 # curl -X POST -F "img=@/Users/jakubsiekiera/Downloads/photo.png" -F "camera_id=123" https://secureeye.herokuapp.com/upload
 
@@ -24,10 +27,12 @@ import telegram
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)  # Set log level to INFO. Change it to DEBUG, ERROR, WARN as per your requirement.
 
+
 # Load environment variables from a .env file
 def configure_secrets():
     load_dotenv()
     logger.info("Environment Variables Loaded")
+
 
 configure_secrets()
 
@@ -38,8 +43,20 @@ app = Flask(__name__)
 # Connect to telegram bot father
 global bot
 BOT_FATHER_TOKEN = os.getenv('BOT_FATHER_TOKEN')
-bot = telegram.Bot(BOT_FATHER_TOKEN)
+bot = Bot(BOT_FATHER_TOKEN)
+updater = Updater(bot=bot, use_context=True)
 logger.info("Connected to telegram bot father.")
+
+
+def start(update: Update, context: CallbackContext):
+    bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="Say Hi to SecureEye!"
+    )
+
+
+start_handler = CommandHandler('start', start)
+updater.dispatcher.add_handler(start_handler)
 
 # Load AWS S3 Access keys from environment variables
 S3_ACCESS_KEY = os.getenv('S3_ACCESS_KEY')
@@ -68,11 +85,6 @@ logger.info("Database initialized")
 chat_ids = db.table('chat_ids')  # Table for user_psid
 chat_ids_camera = db.table('chat_ids_camera')  # Table for user_camera
 logger.info("Database tables created")
-
-# # Upload the database to S3 if it's a new one
-# if not os.path.isfile('db.json'):
-#     s3.upload_file('db.json', 'images-for-messenger', 'db.json')
-#     logger.info("Uploaded the new database to S3.")
 
 UserQuery = Query()
 
@@ -115,9 +127,11 @@ def uploadImageToS3():
     # Convert image to numpy array and normalize it
     image_for_model = np.array(image_for_model) / 255.0
 
+    # TODO The image processing and prediction seems correct if your model expects a (224, 224, 3) input shape. 
+    #      Be aware that this code will fail if the image doesn't have 3 channels.
+
     image_for_model = np.expand_dims(image_for_model, axis=0).astype(np.float32)
 
-    # TODO handle different # of channels
     # Set tensor to image
     interpreter.set_tensor(input_details[0]['index'], image_for_model)
 
@@ -151,10 +165,9 @@ def uploadImageToS3():
     # If the human is in the image, send the image URL to the Facebook Messenger user
     if prediction[1] == 1:
         logger.info("Human detected in the image")
-        # Create a URL for the uploaded file
-        image_url = f"https://images-for-messenger.s3.eu-west-1.amazonaws.com/{key}"
 
-        # TODO update user's PSID if it has changed
+        # TODO update chatID if it has changed
+
         # Find the user associated with this CameraId
         # Search for user_camera with given CameraId
         camera = chat_ids_camera.search(UserQuery.CameraId == camera_id)
@@ -164,8 +177,10 @@ def uploadImageToS3():
             chat_id = chat_ids.search(UserQuery.PSID == camera[0]['PSID'])
             logger.info("Found the user associated with the CameraId")
             if chat_id:
+                s3.download_file('images-for-messenger', key, 'img.png')
                 # Send the image URL to the Facebook Messenger user
-                bot.send_document(chat_id=chat_id, document=image_url)
+                with open('img.png', 'rb') as photo:
+                    bot.send_photo(chat_id=chat_id, photo=photo)
                 logger.info("Sent image URL to Facebook Messenger user")
     else:
         logger.info("Human not detected in the image")
@@ -173,14 +188,9 @@ def uploadImageToS3():
     return 'File uploaded successfully', 200
 
 
-# TODO is the route necessary?
 # Handle incoming messages from Facebook Messenger
-@app.route(f'/{BOT_FATHER_TOKEN}', methods=['POST'])
-def registerCamera():
+def handle_message(update: Update, context: CallbackContext):
     # TODO is this the correct way to retrieve the message?
-
-    # retrieve the message in JSON and then transform it to Telegram object
-    update = telegram.Update.de_json(request.get_json(force=True), bot)
 
     chat_id = update.message.chat.id
     msg_id = update.message.message_id
@@ -232,8 +242,28 @@ def registerCamera():
         os.remove("temp.png")  # Remove the local temporary file
         bot.sendMessage(chat_id=chat_id, text=response, reply_to_message_id=msg_id)
 
+
+# Add the message handler to the Updater
+message_handler = MessageHandler(Filters.text & (~Filters.command), handle_message)
+updater.dispatcher.add_handler(message_handler)
+
+
+def run_flask():
+    app.run(port=5000)
+
+
+def main():
+    logger.info("Starting a Bot...")
+    updater.start_polling()
+    updater.idle()
+
+
 # TODO is this the correct way to run the Flask app?
 # Run the Flask web application
 if __name__ == "__main__":
-    logger.info("Running Flask application")
-    app.run(threaded=True)
+    # Start a separate process for the Flask app
+    p = Process(target=run_flask)
+    p.start()
+
+    # Start the bot
+    main()
