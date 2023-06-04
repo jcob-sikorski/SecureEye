@@ -76,6 +76,7 @@ with app.app_context():
 MODEL_FILE_NAME = os.getenv('MODEL_FILE_NAME')
 MODEL_PATH = os.getenv('MODEL_PATH')
 
+# TODO model will be discarded after 7 days so the need is for a new s3 bucket specifically for models
 # Download the model file to the local (Heroku Dyno) file system
 s3.download_file('images-for-messenger', MODEL_FILE_NAME, MODEL_PATH)
 
