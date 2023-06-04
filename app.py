@@ -5,18 +5,18 @@ import os, json, requests
 import boto3
 from PIL import Image
 import io
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import inspect
 import logging
 import urllib
 import cv2
 import uuid
 import tensorflow as tf
 import numpy as np
+from tinydb import TinyDB, Query
 
 # curl -X POST -F "img=@/Users/jakubsiekiera/Downloads/photo.png" -F "camera_id=123" https://secureeye.herokuapp.com/upload
 
 # TODO try to reduce the size of the app
+# TODO test the tinydb
 
 # Create a logger object
 logger = logging.getLogger(__name__)
@@ -43,35 +43,30 @@ boto3.setup_default_session(aws_access_key_id=S3_ACCESS_KEY,
 s3 = boto3.client('s3')
 logger.info("AWS S3 client initialized")
 
-# Load database details from environment variables
-db_name = os.getenv('DB_NAME')
-db_user = os.getenv('DB_USER')
-db_psswd = os.getenv('DB_PSSWD')
+# Download the database if it exists, if not, create a new one
+try:
+    s3.download_file('images-for-messenger', 'db.json', 'db.json')
+    logger.info("Downloaded the database from S3.")
+except Exception as e:
+    logger.info("Database does not exist, a new one will be created.")
 
-# Configure SQLAlchemy to use PostgreSQL
-app.config['SQLALCHEMY_DATABASE_URI'] = f'postgresql://{db_user}:{db_psswd}@ec2-3-83-61-239.compute-1.amazonaws.com/{db_name}'
-db = SQLAlchemy(app)
+db = TinyDB('db.json')
 logger.info("Database initialized")
 
 # TODO user's PSID might change in the future so internally should be
 # referenced by the UserId incremental
-# Define database models for SQLAlchemy
-class UserPSID(db.Model):
-    __tablename__ = 'user_psid'
-    PSID = db.Column(db.String, primary_key=True)
 
-class UserCamera(db.Model):
-    __tablename__ = 'user_camera'
-    CameraId = db.Column(db.String, primary_key=True)
-    PSID = db.Column(db.String, db.ForeignKey('user_psid.PSID'))  # Foreign Key reference to the UserPSID table
+# Create tables if they don't exist. TinyDB automatically creates a new table if it doesn't exist
+user_psid = db.table('user_psid')  # Table for user_psid
+user_camera = db.table('user_camera')  # Table for user_camera
+logger.info("Database tables created")
 
+# # Upload the database to S3 if it's a new one
+# if not os.path.isfile('db.json'):
+#     s3.upload_file('db.json', 'images-for-messenger', 'db.json')
+#     logger.info("Uploaded the new database to S3.")
 
-with app.app_context():
-    inspector = inspect(db.engine)
-    if 'user_psid' not in inspector.get_table_names():
-        db.create_all()
-    logger.info("Database schema set up")
-
+UserQuery = Query()
 
 MODEL_FILE_NAME = os.getenv('MODEL_FILE_NAME')
 MODEL_PATH = os.getenv('MODEL_PATH')
@@ -187,13 +182,16 @@ def uploadImageToS3():
 
         # TODO update user's PSID if it has changed
         # Find the user associated with this CameraId
-        user_camera = UserCamera.query.filter_by(CameraId=camera_id).first()
-        if user_camera:
-            user = UserPSID.query.filter_by(PSID=user_camera.PSID).first()
+        # Search for user_camera with given CameraId
+        camera = user_camera.search(UserQuery.CameraId == camera_id)
+
+        # Search for user_psid with the PSID of the first found user_camera
+        if camera:
+            user = user_psid.search(UserQuery.PSID == camera[0]['PSID'])
             logger.info("Found the user associated with the CameraId")
             if user:
                 # Send the image URL to the Facebook Messenger user
-                sendResponseToMessenger(user.PSID, response)
+                sendResponseToMessenger(user[0]['PSID'], response)
                 logger.info("Sent image URL to Facebook Messenger user")
     else:
         logger.info("Human not detected in the image")
@@ -230,19 +228,20 @@ def handleMessage(sender_psid, received_message):
                     # TODO allow the user for being able to perform multiple reregistrations if the first one was accidental
                     camera_id = decodedText
                     logger.info("Decoded the QR code.")
+                    
                     # Check if the user already exists
-                    user = UserPSID.query.filter_by(PSID=sender_psid).first()
+                    user = user_psid.search(UserQuery.PSID == sender_psid)
                     if not user:
                         # Create a new user if it does not exist
-                        user = UserPSID(PSID=sender_psid)
-                        db.session.add(user)
-                        db.session.flush()  # Make sure the user is added before the camera
-    
+                        user_psid.insert({'PSID': sender_psid})
+                        logger.info("New user created.")
+
                     # Assign the cameraID to the user
-                    user_camera = UserCamera(CameraId=camera_id, PSID=sender_psid)
-                    db.session.add(user_camera)
-                    db.session.commit()
+                    user_camera.insert({'CameraId': camera_id, 'PSID': sender_psid})
                     logger.info("Saved the user and camera id to the database.")
+
+                    s3.upload_file('db.json', 'images-for-messenger', 'db.json')
+                    logger.info("Uploaded the database to S3.")
     
                     response = {
                         'text': f"Successfully registered your camera!"
