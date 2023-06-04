@@ -12,11 +12,13 @@ import uuid
 import tensorflow as tf
 import numpy as np
 from tinydb import TinyDB, Query
+import telegram
+
+# TODO test reqistering the camera to user
+# TODO test uploading image from camera to the user
+
 
 # curl -X POST -F "img=@/Users/jakubsiekiera/Downloads/photo.png" -F "camera_id=123" https://secureeye.herokuapp.com/upload
-
-# TODO try to reduce the size of the app
-# TODO test the tinydb
 
 # Create a logger object
 logger = logging.getLogger(__name__)
@@ -31,6 +33,13 @@ configure_secrets()
 
 # Create a Flask web application
 app = Flask(__name__)
+
+# TODO check if this is the correct way to connect to bot
+# Connect to telegram bot father
+global bot
+BOT_FATHER_TOKEN = os.getenv('BOT_FATHER_TOKEN')
+bot = telegram.Bot(BOT_FATHER_TOKEN)
+logger.info("Connected to telegram bot father.")
 
 # Load AWS S3 Access keys from environment variables
 S3_ACCESS_KEY = os.getenv('S3_ACCESS_KEY')
@@ -53,12 +62,11 @@ except Exception as e:
 db = TinyDB('db.json')
 logger.info("Database initialized")
 
-# TODO user's PSID might change in the future so internally should be
-# referenced by the UserId incremental
+# TODO does chat_id will be the same in the future?
 
 # Create tables if they don't exist. TinyDB automatically creates a new table if it doesn't exist
-user_psid = db.table('user_psid')  # Table for user_psid
-user_camera = db.table('user_camera')  # Table for user_camera
+chat_ids = db.table('chat_ids')  # Table for user_psid
+chat_ids_camera = db.table('chat_ids_camera')  # Table for user_camera
 logger.info("Database tables created")
 
 # # Upload the database to S3 if it's a new one
@@ -73,7 +81,6 @@ MODEL_PATH = os.getenv('MODEL_PATH')
 s3.download_file('images-for-messenger', MODEL_PATH, MODEL_PATH)
 
 # TODO model will be discarded after 7 days so the need is for a new s3 bucket specifically for models
-# Download the model file to the local (Heroku Dyno) file system
 
 # Load TFLite model and allocate tensors.
 interpreter = tf.lite.Interpreter(model_path=MODEL_PATH)
@@ -88,29 +95,6 @@ output_details = interpreter.get_output_details()
 @app.route('/')
 def home():
     return "Say 'Hi!' to SecureEye!"
-
-
-# Send response message to a Facebook Messenger user
-def sendResponseToMessenger(sender_psid, response):
-    PAGE_ACCESS_TOKEN = os.getenv('PAGE_ACCESS_TOKEN')
-
-    # Define the payload for the POST request
-    payload = {
-        'recipient': {
-            'id': sender_psid
-        },
-        'message': response,
-        'messaging_type': 'RESPONSE'
-    }
-
-
-    headers = {
-        'content-type': 'application/json'
-    }
-
-    url = f'https://graph.facebook.com/v16.0/me/messages?access_token={PAGE_ACCESS_TOKEN}'
-    r = requests.post(url, json=payload, headers=headers)
-    logger.info(f"Response sent to messenger. Response text: {r.text}")
 
 
 # Route for uploading image to AWS S3
@@ -133,6 +117,7 @@ def uploadImageToS3():
 
     image_for_model = np.expand_dims(image_for_model, axis=0).astype(np.float32)
 
+    # TODO handle different # of channels
     # Set tensor to image
     interpreter.set_tensor(input_details[0]['index'], image_for_model)
 
@@ -169,29 +154,18 @@ def uploadImageToS3():
         # Create a URL for the uploaded file
         image_url = f"https://images-for-messenger.s3.eu-west-1.amazonaws.com/{key}"
 
-        # Send the URL to the image on S3 bucket to Facebook Messenger User asscoiated with the CameraId
-        response = {
-            'attachment': {
-                'type': 'file',
-                'payload': {
-                    'url': image_url,
-                    'is_reusable': True
-                }
-            }
-        }
-
         # TODO update user's PSID if it has changed
         # Find the user associated with this CameraId
         # Search for user_camera with given CameraId
-        camera = user_camera.search(UserQuery.CameraId == camera_id)
+        camera = chat_ids_camera.search(UserQuery.CameraId == camera_id)
 
         # Search for user_psid with the PSID of the first found user_camera
         if camera:
-            user = user_psid.search(UserQuery.PSID == camera[0]['PSID'])
+            chat_id = chat_ids.search(UserQuery.PSID == camera[0]['PSID'])
             logger.info("Found the user associated with the CameraId")
-            if user:
+            if chat_id:
                 # Send the image URL to the Facebook Messenger user
-                sendResponseToMessenger(user[0]['PSID'], response)
+                bot.send_document(chat_id=chat_id, document=image_url)
                 logger.info("Sent image URL to Facebook Messenger user")
     else:
         logger.info("Human not detected in the image")
@@ -199,145 +173,67 @@ def uploadImageToS3():
     return 'File uploaded successfully', 200
 
 
+# TODO is the route necessary?
 # Handle incoming messages from Facebook Messenger
-def handleMessage(sender_psid, received_message):
+@app.route(f'/{BOT_FATHER_TOKEN}', methods=['POST'])
+def registerCamera():
+    # TODO is this the correct way to retrieve the message?
+
+    # retrieve the message in JSON and then transform it to Telegram object
+    update = telegram.Update.de_json(request.get_json(force=True), bot)
+
+    chat_id = update.message.chat.id
+    msg_id = update.message.message_id
+
     # Process the received message and send a response
-    if 'attachments' in received_message:
-        for attachment in received_message['attachments']:
-            if attachment['type'] == 'image':
-                # Get the image URL
-                image_url = attachment['payload']['url']
+    image = update.message.document.get_file()
 
-                # Use urllib to download the image
-                image_on_disk, _ = urllib.request.urlretrieve(image_url)
+    # Convert image into .png format
+    image = Image.open(image)
+    image.save("temp.png")
 
-                # Convert image into .png format
-                image = Image.open(image_on_disk)
-                image.save("temp.png")
+    # Decode the QR code from the image
+    img = cv2.imread('temp.png', cv2.IMREAD_GRAYSCALE)
+    _, img2 = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
 
-                # Decode the QR code from the image
-                img = cv2.imread('temp.png', cv2.IMREAD_GRAYSCALE)
-                _, img2 = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+    qrCodeDetector = cv2.QRCodeDetector()
+    decodedText, _, _ = qrCodeDetector.detectAndDecode(img2)
 
-                qrCodeDetector = cv2.QRCodeDetector()
-                decodedText, _, _ = qrCodeDetector.detectAndDecode(img2)
+    # If QR code is decoded successfully, get the CameraId
+    if decodedText:
+        logger.info(f"QR code is decoded successfully")
+        # TODO allow the user for being able to perform multiple reregistrations if the first one was accidental
+        camera_id = decodedText
+        logger.info("Decoded the QR code.")
 
-                # If QR code is decoded successfully, get the CameraId
-                if decodedText:
-                    logger.info(f"QR code is decoded successfully")
-                    # TODO allow the user for being able to perform multiple reregistrations if the first one was accidental
-                    camera_id = decodedText
-                    logger.info("Decoded the QR code.")
+        # Check if the user already exists
+        user = chat_ids.search(UserQuery.ChatId == chat_id)
+        if not user:
+            # Create a new user if it does not exist
+            chat_ids.insert({'ChatId': chat_id})
+            logger.info("New user created.")
 
-                    # Check if the user already exists
-                    user = user_psid.search(UserQuery.PSID == sender_psid)
-                    if not user:
-                        # Create a new user if it does not exist
-                        user_psid.insert({'PSID': sender_psid})
-                        logger.info("New user created.")
+            # Assign the cameraID to the user
+            chat_ids_camera.insert({'CameraId': camera_id, 'ChatId': chat_id})
+            logger.info("Saved the user and camera id to the database.")
 
-                    # Assign the cameraID to the user
-                    user_camera.insert({'CameraId': camera_id, 'PSID': sender_psid})
-                    logger.info("Saved the user and camera id to the database.")
-
-                    s3.upload_file('db.json', 'images-for-messenger', 'db.json')
-                    logger.info("Uploaded the database to S3.")
+            s3.upload_file('db.json', 'images-for-messenger', 'db.json')
+            logger.info("Uploaded the database to S3.")
     
-                    response = {
-                        'text': f"Successfully registered your camera!"
-                    }
-                else:
-                    logger.info(f"Could not decode QR code")
-                    response = {
-                        'text': f"Could not decode QR code. Please try again."
-                    }
-
-                os.remove("temp.png")  # Remove the local temporary file
-                sendResponseToMessenger(sender_psid, response)
-
-
-VERIFY_TOKEN = os.getenv('VERIFY_TOKEN') # Replace this with your verify token
-
-
-# Define a webhook route for Facebook Messenger
-@app.route('/webhook', methods=['GET', 'POST'])
-def webhook():
-    # Verify the webhook for Facebook Messenger
-    if request.method == 'GET':
-
-        logger.info('Verifying the webhook...')
-
-        if 'hub.mode' in request.args:
-            mode = request.args.get('hub.mode')
-        if 'hub.verify_token' in request.args:
-            token = request.args.get('hub.verify_token')
-        if 'hub.challenge' in request.args:
-            challenge = request.args.get('hub.challenge')
-
-        logger.info('Got mode, token and challenge...')
-
-        if 'hub.mode' in request.args and 'hub.verify_token' in request.args:
-            mode = request.args.get('hub.mode')
-            token = request.args.get('hub.verify_token')
-
-            if mode == 'subscribe' and token == VERIFY_TOKEN:
-                
-                logger.info('WEBHOOK_VERIFIED')
-
-                challenge = request.args.get('hub.challenge')
-
-                return challenge, 200
-            else:
-                return 'ERROR', 403
-            
-        return 'SOMETHING', 200
-
-    # Handle incoming POST requests from Facebook Messenger
-    if request.method == 'POST':
-
-        logger.info('Received the message from the messenger user.')
-
-        if 'hub.mode' in request.args:
-            mode = request.args.get('hub.mode')
-        if 'hub.verify_token' in request.args:
-            token = request.args.get('hub.verify_token')
-        if 'hub.challenge' in request.args:
-            challenge = request.args.get('hub.challenge')
-
-        if 'hub.mode' in request.args and 'hub.verify_token' in request.args:
-            mode = request.args.get('hub.mode')
-            token = request.args.get('hub.verify_token')
-
-            if mode == 'subscribe' and token == VERIFY_TOKEN:  
-                logger.info('WEBHOOK_VERIFIED')
-
-                challenge = request.args.get('hub.challenge')
-
-                return challenge, 200
-            else:
-                return 'ERROR', 403
-            
-        data = request.data
-        body = json.loads(data.decode('utf-8'))
-
-        if 'object' in body and body['object'] == 'page':
-            entries = body['entry']
-
-            for entry in entries:
-                webhook_event = entry['messaging'][0]
-
-                sender_psid = webhook_event['sender']['id']
-                logger.info(f"Sender PSID: {sender_psid}")
-                if 'message' in webhook_event:
-                    handleMessage(sender_psid, webhook_event['message'])
-                    logger.info("Handled incoming message")
-
-                return 'EVENT_RECEIVED', 200
+            response = {
+                'text': f"Successfully registered your camera!"
+            }
         else:
-            return 'ERROR', 404
+            logger.info(f"Could not decode QR code")
+            response = {
+                'text': f"Could not decode QR code. Please try again."
+            }
 
+        os.remove("temp.png")  # Remove the local temporary file
+        bot.sendMessage(chat_id=chat_id, text=response, reply_to_message_id=msg_id)
 
+# TODO is this the correct way to run the Flask app?
 # Run the Flask web application
 if __name__ == "__main__":
     logger.info("Running Flask application")
-    app.run()
+    app.run(threaded=True)
