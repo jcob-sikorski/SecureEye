@@ -68,12 +68,12 @@ logger.info("Database tables created")
 
 UserQuery = Query()
 
-MODEL_FILE_NAME = os.getenv('MODEL_FILE_NAME')
 MODEL_PATH = os.getenv('MODEL_PATH')
+
+s3.download_file('images-for-messenger', MODEL_PATH, MODEL_PATH)
 
 # TODO model will be discarded after 7 days so the need is for a new s3 bucket specifically for models
 # Download the model file to the local (Heroku Dyno) file system
-s3.download_file('images-for-messenger', MODEL_FILE_NAME, MODEL_PATH)
 
 # Load TFLite model and allocate tensors.
 interpreter = tf.lite.Interpreter(model_path=MODEL_PATH)
@@ -228,7 +228,7 @@ def handleMessage(sender_psid, received_message):
                     # TODO allow the user for being able to perform multiple reregistrations if the first one was accidental
                     camera_id = decodedText
                     logger.info("Decoded the QR code.")
-                    
+
                     # Check if the user already exists
                     user = user_psid.search(UserQuery.PSID == sender_psid)
                     if not user:
@@ -265,6 +265,8 @@ def webhook():
     # Verify the webhook for Facebook Messenger
     if request.method == 'GET':
 
+        logger.info('Verifying the webhook...')
+
         if 'hub.mode' in request.args:
             mode = request.args.get('hub.mode')
         if 'hub.verify_token' in request.args:
@@ -272,11 +274,14 @@ def webhook():
         if 'hub.challenge' in request.args:
             challenge = request.args.get('hub.challenge')
 
+        logger.info('Got mode, token and challenge...')
+
         if 'hub.mode' in request.args and 'hub.verify_token' in request.args:
             mode = request.args.get('hub.mode')
             token = request.args.get('hub.verify_token')
 
             if mode == 'subscribe' and token == VERIFY_TOKEN:
+                
                 logger.info('WEBHOOK_VERIFIED')
 
                 challenge = request.args.get('hub.challenge')
