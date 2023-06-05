@@ -11,11 +11,11 @@ import uuid
 # import tensorflow as tf
 import numpy as np
 from tinydb import TinyDB, Query
-import telegram
 from telegram import Bot
 from telegram import Update
 from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, filters
 from multiprocessing import Process
+from asyncio import Queue
 
 # TODO test reqistering the camera to user
 # TODO test uploading image from camera to the user
@@ -43,7 +43,8 @@ app = Flask(__name__)
 global bot
 BOT_FATHER_TOKEN = os.getenv('BOT_FATHER_TOKEN')
 bot = Bot(BOT_FATHER_TOKEN)
-updater = Updater(bot=bot)
+update_queue = Queue()
+updater = Updater(bot=bot, update_queue=update_queue)
 logger.info("Connected to telegram bot father.")
 
 
