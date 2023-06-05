@@ -1,6 +1,7 @@
 # custom
 qr_code_generator.py
 camera_id_qrcode1.png
+Dockerfile
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

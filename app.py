@@ -1,15 +1,14 @@
 # Import necessary libraries for Flask web app, AWS S3 access, and database connection
 from flask import Flask, request
 from dotenv import load_dotenv
-import os, json, requests
+import os
 import boto3
 from PIL import Image
 import io
 import logging
-import urllib
 import cv2
 import uuid
-import tensorflow as tf
+# import tensorflow as tf
 import numpy as np
 from tinydb import TinyDB, Query
 import telegram
@@ -88,19 +87,19 @@ logger.info("Database tables created")
 
 UserQuery = Query()
 
-MODEL_PATH = os.getenv('MODEL_PATH')
+# MODEL_PATH = os.getenv('MODEL_PATH')
 
-s3.download_file('images-for-messenger', MODEL_PATH, MODEL_PATH)
+# s3.download_file('images-for-messenger', MODEL_PATH, MODEL_PATH)
 
 # TODO model will be discarded after 7 days so the need is for a new s3 bucket specifically for models
 
 # Load TFLite model and allocate tensors.
-interpreter = tf.lite.Interpreter(model_path=MODEL_PATH)
-interpreter.allocate_tensors()
+# interpreter = tf.lite.Interpreter(model_path=MODEL_PATH)
+# interpreter.allocate_tensors()
 
-# Get input and output tensors.
-input_details = interpreter.get_input_details()
-output_details = interpreter.get_output_details()
+# # Get input and output tensors.
+# input_details = interpreter.get_input_details()
+# output_details = interpreter.get_output_details()
 
 
 # Define a route for the home page
@@ -133,17 +132,17 @@ def uploadImageToS3():
     image_for_model = np.expand_dims(image_for_model, axis=0).astype(np.float32)
 
     # Set tensor to image
-    interpreter.set_tensor(input_details[0]['index'], image_for_model)
+    # interpreter.set_tensor(input_details[0]['index'], image_for_model)
 
     # Run inference
-    interpreter.invoke()
+    # interpreter.invoke()
 
     # Get output tensor
-    output_data = interpreter.get_tensor(output_details[0]['index'])
+    # output_data = interpreter.get_tensor(output_details[0]['index'])
 
     # Normalize prediction
-    prediction = np.zeros_like(output_data[0])
-    prediction[np.argmax(output_data[0])] = 1
+    # prediction = np.zeros_like(output_data[0])
+    # prediction[np.argmax(output_data[0])] = 1
 
     # Create a bytes buffer
     image_byte_arr = io.BytesIO()
@@ -163,27 +162,27 @@ def uploadImageToS3():
     logger.info("Image uploaded to S3")
 
     # If the human is in the image, send the image URL to the Facebook Messenger user
-    if prediction[1] == 1:
-        logger.info("Human detected in the image")
+    # if prediction[1] == 1:
+    logger.info("Human detected in the image")
 
-        # TODO update chatID if it has changed
+    # TODO update chatID if it has changed
 
-        # Find the user associated with this CameraId
-        # Search for user_camera with given CameraId
-        camera = chat_ids_camera.search(UserQuery.CameraId == camera_id)
+    # Find the user associated with this CameraId
+    # Search for user_camera with given CameraId
+    camera = chat_ids_camera.search(UserQuery.CameraId == camera_id)
 
-        # Search for user_psid with the PSID of the first found user_camera
-        if camera:
-            chat_id = chat_ids.search(UserQuery.PSID == camera[0]['PSID'])
-            logger.info("Found the user associated with the CameraId")
-            if chat_id:
-                s3.download_file('images-for-messenger', key, 'img.png')
-                # Send the image URL to the Facebook Messenger user
-                with open('img.png', 'rb') as photo:
-                    bot.send_photo(chat_id=chat_id, photo=photo)
-                logger.info("Sent image URL to Facebook Messenger user")
-    else:
-        logger.info("Human not detected in the image")
+    # Search for user_psid with the PSID of the first found user_camera
+    if camera:
+        chat_id = chat_ids.search(UserQuery.PSID == camera[0]['PSID'])
+        logger.info("Found the user associated with the CameraId")
+        if chat_id:
+            s3.download_file('images-for-messenger', key, 'img.png')
+            # Send the image URL to the Facebook Messenger user
+            with open('img.png', 'rb') as photo:
+                bot.send_photo(chat_id=chat_id, photo=photo)
+            logger.info("Sent image URL to Facebook Messenger user")
+    # else:
+    #     logger.info("Human not detected in the image")
 
     return 'File uploaded successfully', 200
 
