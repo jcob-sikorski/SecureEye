@@ -83,12 +83,6 @@ UserQuery = Query()
 # output_details = interpreter.get_output_details()
 
 
-# Define a route for the home page
-@app.route('/')
-def home():
-    return "Say Hi! to SecureEye!"
-
-
 # Route for uploading image to AWS S3
 @app.route('/upload', methods=['POST'])
 def uploadImageToS3():
@@ -223,12 +217,14 @@ def handle_message(message):
         bot.send_message(chat_id=chat_id, text=response)
 
 
+@app.route("/")
+def webhook():
+    bot.remove_webhook()
+    bot.set_webhook(url='https://clownfish-app-wrk3z.ondigitalocean.app/' + BOT_FATHER_TOKEN)
+    return "!", 200
+
+
 # TODO is this the correct way to run the bot and the flask app at the same time?
 # Run the Flask web application
 if __name__ == "__main__":
-    # Start a separate process for the Bot
-    t = threading.Thread(target=bot.infinity_polling, daemon=True)
-    t.start()  # start the bot in a thread instead
-
-    # Start the app
-    app.run()
+    app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
