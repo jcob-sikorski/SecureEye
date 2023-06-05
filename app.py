@@ -35,8 +35,8 @@ configure_secrets()
 # Create a Flask web application
 app = Flask(__name__)
 
-S3_ACCESS_KEY = os.getenv('BOT_FATHER_TOKEN')
-bot = telebot.TeleBot('BOT_FATHER_TOKEN', parse_mode=None)
+BOT_FATHER_TOKEN = os.getenv('BOT_FATHER_TOKEN')
+bot = telebot.TeleBot(BOT_FATHER_TOKEN, parse_mode=None)
 
 # Load AWS S3 Access keys from environment variables
 S3_ACCESS_KEY = os.getenv('S3_ACCESS_KEY')
