@@ -14,6 +14,9 @@ import numpy as np
 from tinydb import TinyDB, Query
 import telebot
 
+
+# TODO change messenger for telegram everywhere
+
 # curl -X POST -F "img=@/Users/jakubsiekiera/Downloads/photo.png" -F "camera_id=12345" https://clownfish-app-wrk3z.ondigitalocean.app/upload
 
 # Create a logger object
