@@ -9,15 +9,12 @@ import logging
 from io import BytesIO
 import cv2
 import uuid
-# import tensorflow as tf
-# import numpy as np
+import tensorflow as tf
+import numpy as np
 from tinydb import TinyDB, Query
 import telebot
 
-# TODO test reqistering the camera to user
-# TODO test uploading image from camera to the user
-
-# curl -X POST -F "img=@/Users/jakubsiekiera/Downloads/photo.png" -F "camera_id=123" https://secureeye.herokuapp.com/upload
+# curl -X POST -F "img=@/Users/jakubsiekiera/Downloads/photo.png" -F "camera_id=12345" https://clownfish-app-wrk3z.ondigitalocean.app/upload
 
 # Create a logger object
 logger = logging.getLogger(__name__)
@@ -29,8 +26,8 @@ def configure_secrets():
     load_dotenv()
     logger.info("Environment Variables Loaded")
 
-
 configure_secrets()
+
 
 BOT_FATHER_TOKEN = os.getenv('BOT_FATHER_TOKEN')
 bot = telebot.TeleBot(BOT_FATHER_TOKEN)
@@ -62,7 +59,6 @@ except Exception as e:
 db = TinyDB('db.json')
 logger.info("Database initialized")
 
-# TODO does chat_id will be the same in the future?
 
 # Create tables if they don't exist. TinyDB automatically creates a new table if it doesn't exist
 chat_ids = db.table('chat_ids')  # Table for user_psid
@@ -71,19 +67,19 @@ logger.info("Database tables created")
 
 UserQuery = Query()
 
-# MODEL_PATH = os.getenv('MODEL_PATH')
+MODEL_PATH = os.getenv('MODEL_PATH')
 
-# s3.download_file('images-for-messenger', MODEL_PATH, MODEL_PATH)
+s3.download_file('images-for-messenger', MODEL_PATH, MODEL_PATH)
 
 # TODO model will be discarded after 7 days so the need is for a new s3 bucket specifically for models
 
 # Load TFLite model and allocate tensors.
-# interpreter = tf.lite.Interpreter(model_path=MODEL_PATH)
-# interpreter.allocate_tensors()
+interpreter = tf.lite.Interpreter(model_path=MODEL_PATH)
+interpreter.allocate_tensors()
 
-# # Get input and output tensors.
-# input_details = interpreter.get_input_details()
-# output_details = interpreter.get_output_details()
+# Get input and output tensors.
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
 
 
 # Route for uploading image to AWS S3
@@ -99,29 +95,29 @@ def uploadImageToS3():
     image = Image.open(io.BytesIO(image_raw_bytes.read()))
 
     # Resize the image to the size your model expects
-    # image_for_model = image.resize((224, 224))
+    image_for_model = image.resize((224, 224))
 
     # Convert image to numpy array and normalize it
-    # image_for_model = np.array(image_for_model) / 255.0
+    image_for_model = np.array(image_for_model) / 255.0
 
     # TODO The image processing and prediction seems correct if your model expects a (224, 224, 3) input shape. 
     #      Be aware that this code will fail if the image doesn't have 3 channels.
 
-    # image_for_model = np.expand_dims(image_for_model, axis=0).astype(np.float32)
+    image_for_model = np.expand_dims(image_for_model, axis=0).astype(np.float32)
 
     # Set tensor to image
-    # interpreter.set_tensor(input_details[0]['index'], image_for_model)
+    interpreter.set_tensor(input_details[0]['index'], image_for_model)
 
     # Run inference
-    # interpreter.invoke()
+    interpreter.invoke()
 
     # Get output tensor
-    # output_data = interpreter.get_tensor(output_details[0]['index'])
+    output_data = interpreter.get_tensor(output_details[0]['index'])
 
     # Normalize prediction
-    # prediction = np.zeros_like(output_data[0])
+    prediction = np.zeros_like(output_data[0])
 
-    # prediction[np.argmax(output_data[0])] = 1
+    prediction[np.argmax(output_data[0])] = 1
 
     # Create a bytes buffer
     image_byte_arr = io.BytesIO()
@@ -177,20 +173,14 @@ def handle_message(message):
     logger.info(f"Got id.")
 
     fileID = message.photo[-1].file_id
-
-    logger.info(f"Got fileID.")
     file_info = bot.get_file(fileID)
-    logger.info(f"Got file_info.")
     image_bytes = bot.download_file(file_info.file_path)
-    logger.info(f"Got image.")
 
     image_stream = BytesIO(image_bytes)
 
     # Open the image
     image = Image.open(image_stream)
-    logger.info("Converted the image.")
     image.save("temp.png")
-    logger.info("Saved the image.")
 
     # Decode the QR code from the image
     img = cv2.imread('temp.png', cv2.IMREAD_GRAYSCALE)
@@ -225,7 +215,6 @@ def handle_message(message):
         response = "Could not decode QR code. Please try again."
 
     os.remove("temp.png")  # Remove the local temporary file
-    logger.info("Finished processing the image.")
     bot.send_message(chat_id=chat_id, text=response)
     logger.info("Sent the response.")
 
@@ -238,7 +227,6 @@ def getMessage():
     return "!", 200
 
 
-# TODO is this the correct way to run the bot and the flask app at the same time?
 # Run the Flask web application
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
