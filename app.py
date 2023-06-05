@@ -9,10 +9,9 @@ import logging
 import cv2
 import uuid
 # import tensorflow as tf
-import numpy as np
+# import numpy as np
 from tinydb import TinyDB, Query
 import telebot
-import threading
 
 # TODO test reqistering the camera to user
 # TODO test uploading image from camera to the user
@@ -215,6 +214,12 @@ def handle_message(message):
 
         os.remove("temp.png")  # Remove the local temporary file
         bot.send_message(chat_id=chat_id, text=response)
+
+
+@app.route(f'/{BOT_FATHER_TOKEN}', methods=['POST'])
+def getMessage():
+    bot.process_new_updates([telebot.types.Update.de_json(request.stream.read().decode("utf-8"))])
+    return "!", 200
 
 
 @app.route("/")
