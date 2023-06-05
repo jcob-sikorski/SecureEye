@@ -167,6 +167,11 @@ def uploadImageToS3():
     return 'File uploaded successfully', 200
 
 
+@bot.message_handler(commands=['start'])
+def start(message):
+	bot.reply_to(message, "Say Hi! to SecureEye!")
+
+
 # Handle incoming messages from Facebook Messenger
 @bot.message_handler(content_types=['photo'])
 def handle_message(message):
