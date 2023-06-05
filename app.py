@@ -43,7 +43,7 @@ app = Flask(__name__)
 global bot
 BOT_FATHER_TOKEN = os.getenv('BOT_FATHER_TOKEN')
 bot = Bot(BOT_FATHER_TOKEN)
-updater = Updater(bot=bot, use_context=True)
+updater = Updater(bot=bot)
 logger.info("Connected to telegram bot father.")
 
 
@@ -142,6 +142,7 @@ def uploadImageToS3():
 
     # Normalize prediction
     # prediction = np.zeros_like(output_data[0])
+
     # prediction[np.argmax(output_data[0])] = 1
 
     # Create a bytes buffer
