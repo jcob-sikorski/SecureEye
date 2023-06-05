@@ -15,7 +15,7 @@ from tinydb import TinyDB, Query
 import telegram
 from telegram import Bot
 from telegram import Update
-from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters
+from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, filters
 from multiprocessing import Process
 
 # TODO test reqistering the camera to user
@@ -214,7 +214,6 @@ def handle_message(update: Update, context: CallbackContext):
         logger.info(f"QR code is decoded successfully")
         # TODO allow the user for being able to perform multiple reregistrations if the first one was accidental
         camera_id = decodedText
-        logger.info("Decoded the QR code.")
 
         # Check if the user already exists
         user = chat_ids.search(UserQuery.ChatId == chat_id)
@@ -244,7 +243,7 @@ def handle_message(update: Update, context: CallbackContext):
 
 
 # Add the message handler to the Updater
-message_handler = MessageHandler(Filters.text & (~Filters.command), handle_message)
+message_handler = MessageHandler(filters.text & (~filters.command), handle_message)
 updater.dispatcher.add_handler(message_handler)
 
 
