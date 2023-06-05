@@ -6,6 +6,7 @@ import boto3
 from PIL import Image
 import io
 import logging
+from io import BytesIO
 import cv2
 import uuid
 # import tensorflow as tf
@@ -181,12 +182,13 @@ def handle_message(message):
     logger.info(f"Got fileID.")
     file_info = bot.get_file(fileID)
     logger.info(f"Got file_info.")
-    image = bot.download_file(file_info.file_path)
+    image_bytes = bot.download_file(file_info.file_path)
     logger.info(f"Got image.")
 
+    image_stream = BytesIO(image_bytes)
 
-    # Convert image into .png format
-    image = Image.open(image)
+    # Open the image
+    image = Image.open(image_stream)
     logger.info("Converted the image.")
     image.save("temp.png")
     logger.info("Saved the image.")
