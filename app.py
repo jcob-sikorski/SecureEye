@@ -148,16 +148,15 @@ def uploadImageToS3():
 
     # Find the user associated with this CameraId
     # Search for user_camera with given CameraId
-    camera = chat_ids_camera.search(UserQuery.CameraId == camera_id)
+    user_camera = chat_ids_camera.search(UserQuery.CameraId == camera_id)
 
     # Search for user_psid with the PSID of the first found user_camera
-    if camera:
-        chat_id = chat_ids.search(UserQuery.ChatId == chat_id)
+    if user_camera:
         logger.info("Found the user associated with the CameraId")
-        if chat_id:
-            image_url = f"https://images-for-messenger.s3.eu-west-1.amazonaws.com/{key}"
-            bot.send_photo(chat_id=chat_id, photo=image_url)
-            logger.info("Sent image URL to Facebook Messenger user")
+        user = user_camera[0]["ChatId"] # there is one user for the camera so we take the first one
+        image_url = f"https://images-for-messenger.s3.eu-west-1.amazonaws.com/{key}"
+        bot.send_photo(chat_id=user, photo=image_url)
+        logger.info("Sent image URL to Facebook Messenger user")
     # else:
     #     logger.info("Human not detected in the image")
 
