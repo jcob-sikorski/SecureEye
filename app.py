@@ -16,6 +16,7 @@ import telebot
 
 
 # TODO change messenger for telegram everywhere
+# TODO change the name of s3 bucket
 
 # curl -X POST -F "img=@/Users/jakubsiekiera/Downloads/photo.png" -F "camera_id=12345" https://clownfish-app-wrk3z.ondigitalocean.app/upload
 
@@ -140,24 +141,24 @@ def uploadImageToS3():
     logger.info("Image uploaded to S3")
 
     # If the human is in the image, send the image URL to the Facebook Messenger user
-    # if prediction[1] == 1:
-    logger.info("Human detected in the image")
+    if prediction[1] == 1:
+        logger.info("Human detected in the image")
 
-    # TODO update chatID if it has changed
+        # TODO update chatID if it has changed
 
-    # Find the user associated with this CameraId
-    # Search for user_camera with given CameraId
-    user_camera = chat_ids_camera.search(UserQuery.CameraId == camera_id)
+        # Find the user associated with this CameraId
+        # Search for user_camera with given CameraId
+        user_camera = chat_ids_camera.search(UserQuery.CameraId == camera_id)
 
-    # Search for user_psid with the PSID of the first found user_camera
-    if user_camera:
-        logger.info("Found the user associated with the CameraId")
-        user = user_camera[0]["ChatId"] # there is one user for the camera so we take the first one
-        image_url = f"https://images-for-messenger.s3.eu-west-1.amazonaws.com/{key}"
-        bot.send_photo(chat_id=user, photo=image_url)
-        logger.info("Sent image URL to Facebook Messenger user")
-    # else:
-    #     logger.info("Human not detected in the image")
+        # Search for user_psid with the PSID of the first found user_camera
+        if user_camera:
+            logger.info("Found the user associated with the CameraId")
+            user = user_camera[0]["ChatId"] # there is one user for the camera so we take the first one
+            image_url = f"https://images-for-messenger.s3.eu-west-1.amazonaws.com/{key}"
+            bot.send_photo(chat_id=user, photo=image_url)
+            logger.info("Sent image URL to Facebook Messenger user")
+        else:
+            logger.info("Human not detected in the image")
 
     return 'File uploaded successfully', 200
 
