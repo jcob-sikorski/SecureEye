@@ -20,7 +20,7 @@ import telebot
 
 # Create a logger object
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)  # Set log level to INFO. Change it to DEBUG, ERROR, WARN as per your requirement.
+logging.basicConfig(level=logging.DEBUG)  # Set log level to INFO. Change it to DEBUG, ERROR, WARN as per your requirement.
 
 
 # Load environment variables from a .env file
@@ -31,11 +31,14 @@ def configure_secrets():
 
 configure_secrets()
 
+BOT_FATHER_TOKEN = os.getenv('BOT_FATHER_TOKEN')
+bot = telebot.TeleBot(BOT_FATHER_TOKEN)
+
+bot.remove_webhook()
+bot.set_webhook(url='https://clownfish-app-wrk3z.ondigitalocean.app/' + BOT_FATHER_TOKEN)
+
 # Create a Flask web application
 app = Flask(__name__)
-
-BOT_FATHER_TOKEN = os.getenv('BOT_FATHER_TOKEN')
-bot = telebot.TeleBot(BOT_FATHER_TOKEN, parse_mode=None)
 
 # Load AWS S3 Access keys from environment variables
 S3_ACCESS_KEY = os.getenv('S3_ACCESS_KEY')
@@ -165,20 +168,28 @@ def start(message):
 	bot.reply_to(message, "Say Hi! to SecureEye!")
 
 
-# Handle incoming messages from Facebook Messenger
+# Handle incoming messages from Telegram
 @bot.message_handler(content_types=['photo'])
 def handle_message(message):
-    logger.info(f"Received the message from the user.")
+    logger.info(f"Received the photo from the user.")
     
     chat_id = message[-1].chat.id
+    logger.info(f"Got id.")
 
     fileID = message.photo[-1].file_id
+
+    logger.info(f"Got fileID.")
     file_info = bot.get_file(fileID)
+    logger.info(f"Got file_info.")
     image = bot.download_file(file_info.file_path)
+    logger.info(f"Got image.")
+
 
     # Convert image into .png format
     image = Image.open(image)
+    logger.info("Converted the image.")
     image.save("temp.png")
+    logger.info("Saved the image.")
 
     # Decode the QR code from the image
     img = cv2.imread('temp.png', cv2.IMREAD_GRAYSCALE)
@@ -200,32 +211,29 @@ def handle_message(message):
             chat_ids.insert({'ChatId': chat_id})
             logger.info("New user created.")
 
-            # Assign the cameraID to the user
-            chat_ids_camera.insert({'CameraId': camera_id, 'ChatId': chat_id})
-            logger.info("Saved the user and camera id to the database.")
+        # Assign the cameraID to the user
+        chat_ids_camera.insert({'CameraId': camera_id, 'ChatId': chat_id})
+        logger.info("Saved the user and camera id to the database.")
 
-            s3.upload_file('db.json', 'images-for-messenger', 'db.json')
-            logger.info("Uploaded the database to S3.")
+        s3.upload_file('db.json', 'images-for-messenger', 'db.json')
+        logger.info("Uploaded the database to S3.")
     
-            response = "Successfully registered your camera!"
-        else:
-            logger.info(f"Could not decode QR code")
-            response = "Could not decode QR code. Please try again."
+        response = "Successfully registered your camera!"
+    else:
+        logger.info(f"Could not decode QR code")
+        response = "Could not decode QR code. Please try again."
 
-        os.remove("temp.png")  # Remove the local temporary file
-        bot.send_message(chat_id=chat_id, text=response)
+    os.remove("temp.png")  # Remove the local temporary file
+    logger.info("Finished processing the image.")
+    bot.send_message(chat_id=chat_id, text=response)
+    logger.info("Sent the response.")
 
 
 @app.route(f'/{BOT_FATHER_TOKEN}', methods=['POST'])
 def getMessage():
-    bot.process_new_updates([telebot.types.Update.de_json(request.stream.read().decode("utf-8"))])
-    return "!", 200
-
-
-@app.route("/")
-def webhook():
-    bot.remove_webhook()
-    bot.set_webhook(url='https://clownfish-app-wrk3z.ondigitalocean.app/' + BOT_FATHER_TOKEN)
+    json_string = request.get_data().decode('utf-8')
+    update = telebot.types.Update.de_json(json_string)
+    bot.process_new_updates([update])
     return "!", 200
 
 
