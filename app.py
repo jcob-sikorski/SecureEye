@@ -12,6 +12,7 @@ import uuid
 import numpy as np
 from tinydb import TinyDB, Query
 import telebot
+import threading
 
 # TODO test reqistering the camera to user
 # TODO test uploading image from camera to the user
@@ -219,8 +220,9 @@ def handle_message(message):
 # TODO is this the correct way to run the bot and the flask app at the same time?
 # Run the Flask web application
 if __name__ == "__main__":
-    # Start a separate process for the Flask app
-    bot.infinity_polling()
+    # Start a separate process for the Bot
+    t = threading.Thread(target=bot.infinity_polling, daemon=True)
+    t.start()  # start the bot in a thread instead
 
-    # Start the bot
+    # Start the app
     app.run()
