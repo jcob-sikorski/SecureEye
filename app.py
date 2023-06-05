@@ -170,6 +170,7 @@ def uploadImageToS3():
 # Handle incoming messages from Facebook Messenger
 @bot.message_handler(content_types=['photo'])
 def handle_message(message):
+    logger.info(f"Received the message from the user.")
     
     chat_id = message[-1].chat.id
 
