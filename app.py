@@ -173,7 +173,7 @@ def start(message):
 def handle_message(message):
     logger.info(f"Received the photo from the user.")
     
-    chat_id = message[-1].chat.id
+    chat_id = message.chat.id
     logger.info(f"Got id.")
 
     fileID = message.photo[-1].file_id
