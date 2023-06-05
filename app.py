@@ -11,11 +11,7 @@ import uuid
 # import tensorflow as tf
 import numpy as np
 from tinydb import TinyDB, Query
-from telegram import Bot
-from telegram import Update
-from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, filters
-from multiprocessing import Process
-from asyncio import Queue
+import telebot
 
 # TODO test reqistering the camera to user
 # TODO test uploading image from camera to the user
@@ -38,25 +34,8 @@ configure_secrets()
 # Create a Flask web application
 app = Flask(__name__)
 
-# TODO check if this is the correct way to connect to bot
-# Connect to telegram bot father
-global bot
-BOT_FATHER_TOKEN = os.getenv('BOT_FATHER_TOKEN')
-bot = Bot(BOT_FATHER_TOKEN)
-update_queue = Queue()
-updater = Updater(bot=bot, update_queue=update_queue)
-logger.info("Connected to telegram bot father.")
-
-
-def start(update: Update, context: CallbackContext):
-    bot.send_message(
-        chat_id=update.effective_chat.id,
-        text="Say Hi to SecureEye!"
-    )
-
-
-start_handler = CommandHandler('start', start)
-updater.dispatcher.add_handler(start_handler)
+S3_ACCESS_KEY = os.getenv('BOT_FATHER_TOKEN')
+bot = telebot.TeleBot('BOT_FATHER_TOKEN', parse_mode=None)
 
 # Load AWS S3 Access keys from environment variables
 S3_ACCESS_KEY = os.getenv('S3_ACCESS_KEY')
@@ -106,7 +85,7 @@ UserQuery = Query()
 # Define a route for the home page
 @app.route('/')
 def home():
-    return "Say 'Hi!' to SecureEye!"
+    return "Say Hi! to SecureEye!"
 
 
 # Route for uploading image to AWS S3
@@ -122,15 +101,15 @@ def uploadImageToS3():
     image = Image.open(io.BytesIO(image_raw_bytes.read()))
 
     # Resize the image to the size your model expects
-    image_for_model = image.resize((224, 224))
+    # image_for_model = image.resize((224, 224))
 
     # Convert image to numpy array and normalize it
-    image_for_model = np.array(image_for_model) / 255.0
+    # image_for_model = np.array(image_for_model) / 255.0
 
     # TODO The image processing and prediction seems correct if your model expects a (224, 224, 3) input shape. 
     #      Be aware that this code will fail if the image doesn't have 3 channels.
 
-    image_for_model = np.expand_dims(image_for_model, axis=0).astype(np.float32)
+    # image_for_model = np.expand_dims(image_for_model, axis=0).astype(np.float32)
 
     # Set tensor to image
     # interpreter.set_tensor(input_details[0]['index'], image_for_model)
@@ -175,13 +154,11 @@ def uploadImageToS3():
 
     # Search for user_psid with the PSID of the first found user_camera
     if camera:
-        chat_id = chat_ids.search(UserQuery.PSID == camera[0]['PSID'])
+        chat_id = chat_ids.search(UserQuery.ChatId == chat_id)
         logger.info("Found the user associated with the CameraId")
         if chat_id:
-            s3.download_file('images-for-messenger', key, 'img.png')
-            # Send the image URL to the Facebook Messenger user
-            with open('img.png', 'rb') as photo:
-                bot.send_photo(chat_id=chat_id, photo=photo)
+            image_url = f"https://images-for-messenger.s3.eu-west-1.amazonaws.com/{key}"
+            bot.send_photo(chat_id=chat_id, photo=image_url)
             logger.info("Sent image URL to Facebook Messenger user")
     # else:
     #     logger.info("Human not detected in the image")
@@ -190,14 +167,14 @@ def uploadImageToS3():
 
 
 # Handle incoming messages from Facebook Messenger
-def handle_message(update: Update, context: CallbackContext):
-    # TODO is this the correct way to retrieve the message?
+@bot.message_handler(content_types=['photo'])
+def handle_message(message):
+    
+    chat_id = message[-1].chat.id
 
-    chat_id = update.message.chat.id
-    msg_id = update.message.message_id
-
-    # Process the received message and send a response
-    image = update.message.document.get_file()
+    fileID = message.photo[-1].file_id
+    file_info = bot.get_file(fileID)
+    image = bot.download_file(file_info.file_path)
 
     # Convert image into .png format
     image = Image.open(image)
@@ -230,40 +207,20 @@ def handle_message(update: Update, context: CallbackContext):
             s3.upload_file('db.json', 'images-for-messenger', 'db.json')
             logger.info("Uploaded the database to S3.")
     
-            response = {
-                'text': f"Successfully registered your camera!"
-            }
+            response = "Successfully registered your camera!"
         else:
             logger.info(f"Could not decode QR code")
-            response = {
-                'text': f"Could not decode QR code. Please try again."
-            }
+            response = "Could not decode QR code. Please try again."
 
         os.remove("temp.png")  # Remove the local temporary file
-        bot.sendMessage(chat_id=chat_id, text=response, reply_to_message_id=msg_id)
+        bot.send_message(chat_id=chat_id, text=response)
 
 
-# Add the message handler to the Updater
-message_handler = MessageHandler(filters.text & (~filters.command), handle_message)
-updater.dispatcher.add_handler(message_handler)
-
-
-def run_flask():
-    app.run(port=5000)
-
-
-def main():
-    logger.info("Starting a Bot...")
-    updater.start_polling()
-    updater.idle()
-
-
-# TODO is this the correct way to run the Flask app?
+# TODO is this the correct way to run the bot and the flask app at the same time?
 # Run the Flask web application
 if __name__ == "__main__":
     # Start a separate process for the Flask app
-    p = Process(target=run_flask)
-    p.start()
+    bot.infinity_polling()
 
     # Start the bot
-    main()
+    app.run()
