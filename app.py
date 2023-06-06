@@ -98,14 +98,18 @@ def uploadImageToS3():
     # Convert raw bytes into Image object
     image = Image.open(io.BytesIO(image_raw_bytes.read()))
 
+    # Convert grayscale or RGBA images to RGB
+    if image.mode != 'RGB':
+        image = image.convert('RGB')
+
     # Resize the image to the size your model expects
     image_for_model = image.resize((224, 224))
 
     # Convert image to numpy array and normalize it
     image_for_model = np.array(image_for_model) / 255.0
 
-    # TODO The image processing and prediction seems correct if your model expects a (224, 224, 3) input shape. 
-    #      Be aware that this code will fail if the image doesn't have 3 channels.
+    # The image processing and prediction seems correct if your model expects a (1, 224, 224, 3) input shape. 
+    # Now, this code will also handle if the image doesn't have 3 channels.
 
     image_for_model = np.expand_dims(image_for_model, axis=0).astype(np.float32)
 
@@ -134,7 +138,7 @@ def uploadImageToS3():
 
     # Define S3 resource instead of client to use the upload_file method
     s3 = boto3.resource('s3')
-    key = str(uuid.uuid4()) + ".png"
+    key = f"{uuid.uuid4()}.png"
 
     # Put image into S3 bucket
     s3.Bucket('images-for-messenger').put_object(Key=key, Body=image_byte_value)
