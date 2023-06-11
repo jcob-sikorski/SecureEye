@@ -22,7 +22,7 @@ import telebot
 
 # Create a logger object
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG)  # Set log level to INFO. Change it to DEBUG, ERROR, WARN as per your requirement.
+logging.basicConfig(level=logging.INFO)  # Set log level to INFO. Change it to DEBUG, ERROR, WARN as per your requirement.
 
 
 # Load environment variables from a .env file
