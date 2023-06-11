@@ -81,9 +81,13 @@ s3.download_file('images-for-messenger', MODEL_PATH, MODEL_PATH)
 interpreter = tf.lite.Interpreter(model_path=MODEL_PATH)
 interpreter.allocate_tensors()
 
+logger.info("Model loaded")
+
 # Get input and output tensors.
 input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
+
+logger.info("Got input and output details")
 
 
 # Route for uploading image to AWS S3
