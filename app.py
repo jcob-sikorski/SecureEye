@@ -94,6 +94,13 @@ logger.info("Got input and output details")
 @app.route('/upload', methods=['POST'])
 def uploadImageToS3():
     logger.info(f"Request the request from the camera: {request}")
+    # Log the headers
+    logger.info(f"Request headers: {request.headers}")
+    # Log the request data (content)
+    logger.info(f"Request data: {request.get_data()}")
+
+
+	
     # Retrieve the file from the request
     image_raw_bytes = request.files['img']
 
