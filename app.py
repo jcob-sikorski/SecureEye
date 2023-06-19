@@ -97,7 +97,7 @@ def uploadImageToS3():
     image_raw_bytes = request.files['img']
 
     # Retrieve the camera_id from the request
-    camera_id = request.form.get('camera_id')
+    camera_id = request.headers.get('camera_id')
 
     # Convert raw bytes into Image object
     image = Image.open(io.BytesIO(image_raw_bytes.read()))
