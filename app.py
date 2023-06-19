@@ -93,6 +93,7 @@ logger.info("Got input and output details")
 # Route for uploading image to AWS S3
 @app.route('/upload', methods=['POST'])
 def uploadImageToS3():
+    logger.info(f"Request the request from the camera: {request}")
     # Retrieve the file from the request
     image_raw_bytes = request.files['img']
 
