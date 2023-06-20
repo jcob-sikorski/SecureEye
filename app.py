@@ -102,13 +102,13 @@ def uploadImageToS3():
 
 	
     # Retrieve the file from the request
-    image_raw_bytes = request.get_data()
+     image_raw_bytes = request.files['img']
 
     # Retrieve the camera_id from the request
     camera_id = request.headers.get('camera_id')
 
     # Convert raw bytes into Image object
-     image = Image.open(io.BytesIO(image_raw_bytes))
+      image = Image.open(io.BytesIO(image_raw_bytes.read()))
 
     # Convert grayscale or RGBA images to RGB
     if image.mode != 'RGB':
