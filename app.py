@@ -97,10 +97,10 @@ def uploadImageToS3():
     # Log the headers
     logger.info(f"Request headers: {request.headers}")
     # Log the request data (content)
-    #logger.info(f"Request data: {request.get_data()}")
+    logger.info(f"Request data: {request.get_data()}")
+	
     packet_size = request.headers.get('Content-Length')
     logger.info(f"Packet size: {packet_size}")
-
 	
     # Retrieve the file from the request
      image_raw_bytes = request.files['img']
