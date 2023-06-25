@@ -73,7 +73,7 @@ UserQuery = Query()
 
 MODEL_PATH = os.getenv('MODEL_PATH')
 
-s3.download_file('images-for-messenger', MODEL_PATH, MODEL_PATH)
+#s3.download_file('images-for-messenger', MODEL_PATH, MODEL_PATH)
 
 # TODO model will be discarded after 7 days so the need is for a new s3 bucket specifically for models
 
@@ -158,24 +158,24 @@ def uploadImageToS3():
     logger.info("Image uploaded to S3")
 
     # If the human is in the image, send the image URL to the Facebook Messenger user
-    if prediction[1] == 1:
-        logger.info("Human detected in the image")
+    #if prediction[1] == 1:
+     #   logger.info("Human detected in the image")
 
         # TODO update chatID if it has changed
 
         # Find the user associated with this CameraId
         # Search for user_camera with given CameraId
-        user_camera = chat_ids_camera.search(UserQuery.CameraId == camera_id)
+      #  user_camera = chat_ids_camera.search(UserQuery.CameraId == camera_id)
 
         # Search for user_psid with the PSID of the first found user_camera
-        if user_camera:
-            logger.info("Found the user associated with the CameraId")
-            user = user_camera[0]["ChatId"] # there is one user for the camera so we take the first one
-            image_url = f"https://images-for-messenger.s3.eu-west-1.amazonaws.com/{key}"
-            bot.send_photo(chat_id=user, photo=image_url)
-            logger.info("Sent image URL to Facebook Messenger user")
-        else:
-            logger.info("Human not detected in the image")
+       # if user_camera:
+        #    logger.info("Found the user associated with the CameraId")
+         #   user = user_camera[0]["ChatId"] # there is one user for the camera so we take the first one
+          #  image_url = f"https://images-for-messenger.s3.eu-west-1.amazonaws.com/{key}"
+           # bot.send_photo(chat_id=user, photo=image_url)
+            #logger.info("Sent image URL to Facebook Messenger user")
+        #else:
+         #   logger.info("Human not detected in the image")
 
     return 'File uploaded successfully', 200
 
