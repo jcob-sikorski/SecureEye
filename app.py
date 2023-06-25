@@ -71,17 +71,17 @@ logger.info("Database tables created")
 
 UserQuery = Query()
 
-MODEL_PATH = os.getenv('MODEL_PATH')
+#MODEL_PATH = os.getenv('MODEL_PATH')
 
 #s3.download_file('images-for-messenger', MODEL_PATH, MODEL_PATH)
 
 # TODO model will be discarded after 7 days so the need is for a new s3 bucket specifically for models
 
 # Load TFLite model and allocate tensors.
-interpreter = tf.lite.Interpreter(model_path=MODEL_PATH)
-interpreter.allocate_tensors()
+#interpreter = tf.lite.Interpreter(model_path=MODEL_PATH)
+#interpreter.allocate_tensors()
 
-logger.info("Model loaded")
+#logger.info("Model loaded")
 
 # Get input and output tensors.
 input_details = interpreter.get_input_details()
@@ -127,18 +127,18 @@ def uploadImageToS3():
     image_for_model = np.expand_dims(image_for_model, axis=0).astype(np.float32)
 
     # Set tensor to image
-    interpreter.set_tensor(input_details[0]['index'], image_for_model)
+    #interpreter.set_tensor(input_details[0]['index'], image_for_model)
 
     # Run inference
-    interpreter.invoke()
+    #interpreter.invoke()
 
     # Get output tensor
-    output_data = interpreter.get_tensor(output_details[0]['index'])
+    #output_data = interpreter.get_tensor(output_details[0]['index'])
 
     # Normalize prediction
-    prediction = np.zeros_like(output_data[0])
+    #prediction = np.zeros_like(output_data[0])
 
-    prediction[np.argmax(output_data[0])] = 1
+    #prediction[np.argmax(output_data[0])] = 1
 
     # Create a bytes buffer
     image_byte_arr = io.BytesIO()
